@@ -94,6 +94,11 @@ function RouteCard({ route, departureTime, selected, recommended, onSelect }) {
               <Icon name="wind" size={13} />
               <span>Severe Winds</span>
             </span>
+          ) : (s.unknown_miles || 0) > 0 ? (
+            <span className="badge unknown-badge">
+              <Icon name="info" size={13} />
+              <span>Incomplete Forecast</span>
+            </span>
           ) : (
             <span className="badge clear-badge">
               <Icon name="check" size={13} />
@@ -398,25 +403,55 @@ Rationale: ${result.rationale}`;
   return (
     <section className="results-panel" aria-label="Route analysis results">
       {/* Top Recommendation Banner */}
-      <div className="recommendation-banner">
-        <div className="rec-badge-row">
-          <span className="rec-star-badge">
-            <Icon name="shield-check" size={16} />
-            <span>Recommended Decision</span>
-          </span>
-          <button
-            type="button"
-            className="copy-summary-btn"
-            onClick={handleCopySummary}
-            title="Copy route dispatch summary to clipboard"
-          >
-            <Icon name={copied ? "check" : "clipboard"} size={14} />
-            <span>{copied ? "Copied!" : "Copy Dispatch"}</span>
-          </button>
+      {result.all_prohibited || result.recommended_id === null ? (
+        <div className="recommendation-banner prohibited-banner">
+          <div className="rec-badge-row">
+            <span className="rec-danger-badge">
+              <Icon name="alert-triangle" size={16} />
+              <span>Prohibited — No Travel</span>
+            </span>
+            <button
+              type="button"
+              className="copy-summary-btn"
+              onClick={handleCopySummary}
+              title="Copy route dispatch summary to clipboard"
+            >
+              <Icon name={copied ? "check" : "clipboard"} size={14} />
+              <span>{copied ? "Copied!" : "Copy Dispatch"}</span>
+            </button>
+          </div>
+          <h2 className="rec-title text-danger">All Corridors Contain No Travel Conditions</h2>
+          <p className="rec-rationale">{result.rationale}</p>
         </div>
-        <h2 className="rec-title">Take {recommended?.name || `Route ${result.recommended_id}`}</h2>
-        <p className="rec-rationale">{result.rationale}</p>
-      </div>
+      ) : (
+        <div className="recommendation-banner">
+          <div className="rec-badge-row">
+            <span className="rec-star-badge">
+              <Icon name="shield-check" size={16} />
+              <span>Recommended Decision</span>
+            </span>
+            <button
+              type="button"
+              className="copy-summary-btn"
+              onClick={handleCopySummary}
+              title="Copy route dispatch summary to clipboard"
+            >
+              <Icon name={copied ? "check" : "clipboard"} size={14} />
+              <span>{copied ? "Copied!" : "Copy Dispatch"}</span>
+            </button>
+          </div>
+          <h2 className="rec-title">Take {recommended?.name || `Route ${result.recommended_id}`}</h2>
+          <p className="rec-rationale">{result.rationale}</p>
+        </div>
+      )}
+
+      {/* Route notice if fewer than 3 distinct routes were returned */}
+      {result.route_notice && (
+        <div className="route-notice-banner" role="status">
+          <Icon name="info" size={15} />
+          <span>{result.route_notice}</span>
+        </div>
+      )}
 
       {/* View Switcher Tabs */}
       <div className="results-tab-bar" role="tablist">

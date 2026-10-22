@@ -1,4 +1,4 @@
-export const LEVELS = ["Low", "Moderate", "High", "Severe", "No Travel"];
+export const LEVELS = ["Low", "Moderate", "High", "Severe", "No Travel", "Unknown"];
 
 export const LEVEL_COLORS = [
   "#10b981", // Low - Emerald Green
@@ -6,6 +6,7 @@ export const LEVEL_COLORS = [
   "#f97316", // High - Alert Orange
   "#ef4444", // Severe - Danger Red
   "#7c3aed", // No Travel - Deep Purple
+  "#64748b", // Unknown - Slate Gray
 ];
 
 export const LEVEL_BG_TINTS = [
@@ -14,6 +15,7 @@ export const LEVEL_BG_TINTS = [
   "rgba(249, 115, 22, 0.15)",
   "rgba(239, 68, 68, 0.15)",
   "rgba(124, 58, 237, 0.16)",
+  "rgba(100, 116, 139, 0.16)",
 ];
 
 export const ROUTE_COLORS = [
@@ -72,7 +74,7 @@ export function calcETA(departureIso, durationSeconds) {
 }
 
 export function getRiskLevelBadge(level) {
-  const idx = Math.max(0, Math.min(4, Math.round(level)));
+  const idx = Math.max(0, Math.min(5, Math.round(level)));
   return {
     name: LEVELS[idx],
     color: LEVEL_COLORS[idx],

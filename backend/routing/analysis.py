@@ -4,7 +4,7 @@ from datetime import timedelta
 from .geometry import thin
 from .recommend import recommend, route_stats
 from .risk import LEVELS, classify
-from .routes import build_checkpoints, fetch_routes, pick_interval
+from .routes import RoutingError, build_checkpoints, fetch_routes, pick_interval
 from .weather import load_weather
 
 FORECAST_HOURS = 48
@@ -13,6 +13,9 @@ MAX_GEOMETRY_POINTS = 1500
 
 def analyze_trip(origin, destination, depart, weight_lb, interval="auto"):
     routes = fetch_routes(origin, destination)
+    if not routes:
+        raise RoutingError("No driving routes could be found between the specified locations.")
+
     for r in routes:
         r["interval_mi"] = pick_interval(r["distance_mi"], interval)
         r["checkpoints"] = build_checkpoints(r["coords"], r["duration_s"], depart, r["interval_mi"])
@@ -30,10 +33,10 @@ def analyze_trip(origin, destination, depart, weight_lb, interval="auto"):
             cp.update(
                 level=level,
                 level_name=LEVELS[level],
-                wind_mph=round(w["wind"], 1),
-                rain_in_hr=round(w["rain"], 2),
-                snow_in_hr=round(w["snow"], 2),
-                temp_f=round(w["temp"]),
+                wind_mph=round(w["wind"], 1) if w["wind"] is not None else None,
+                rain_in_hr=round(w["rain"], 2) if w["rain"] is not None else None,
+                snow_in_hr=round(w["snow"], 2) if w["snow"] is not None else None,
+                temp_f=round(w["temp"]) if w["temp"] is not None else None,
                 reasons=reasons,
             )
             # Conditions at this spot for every forecast hour after departure (heatmap slider).
@@ -41,14 +44,28 @@ def analyze_trip(origin, destination, depart, weight_lb, interval="auto"):
             for h in range(FORECAST_HOURS + 1):
                 f = weather.at(cp["lat"], cp["lon"], depart_hour + timedelta(hours=h))
                 lvl, _ = classify(f["wind"], f["rain"], f["snow"], weight_lb)
-                forecast.append([lvl, round(f["wind"]), round(f["rain"], 2), round(f["snow"], 2)])
+                forecast.append([
+                    lvl,
+                    round(f["wind"]) if f["wind"] is not None else None,
+                    round(f["rain"], 2) if f["rain"] is not None else None,
+                    round(f["snow"], 2) if f["snow"] is not None else None,
+                ])
             cp["forecast"] = forecast
         r["stats"] = route_stats(r["checkpoints"], r["duration_s"])
 
     best, rationale = recommend(routes)
+    all_prohibited = best is None
+    recommended_id = routes.index(best) + 1 if best is not None else None
+
+    route_notice = None
+    if len(routes) < 3:
+        route_notice = f"Only {len(routes)} distinct route option(s) could be identified by the road network for this corridor."
+
     return {
         "forecast_start": depart_hour.isoformat(),
-        "recommended_id": routes.index(best) + 1,
+        "recommended_id": recommended_id,
+        "all_prohibited": all_prohibited,
+        "route_notice": route_notice,
         "rationale": rationale,
         "routes": [_serialize(i + 1, r) for i, r in enumerate(routes)],
     }

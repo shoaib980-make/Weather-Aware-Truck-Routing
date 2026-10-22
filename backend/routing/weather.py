@@ -25,22 +25,45 @@ class WeatherData:
         self.series = {}
 
     def at(self, lat, lon, when):
-        s = self.series[grid_key(lat, lon)]
+        k = grid_key(lat, lon)
+        s = self.series.get(k)
+        if not s:
+            return {"wind": None, "rain": None, "snow": None, "temp": None, "available": False}
         idx = round((when - s["base"]).total_seconds() / 3600)
-        idx = max(0, min(len(s["wind"]) - 1, idx))
-        return {k: s[k][idx] for k in ("wind", "rain", "snow", "temp")}
+        if idx < 0 or idx >= len(s["wind"]):
+            return {"wind": None, "rain": None, "snow": None, "temp": None, "available": False}
+        return {
+            "wind": s["wind"][idx],
+            "rain": s["rain"][idx],
+            "snow": s["snow"][idx],
+            "temp": s["temp"][idx],
+            "available": True,
+        }
 
 
 def _parse(item):
     h = item["hourly"]
     base = datetime.fromisoformat(h["time"][0]).replace(tzinfo=timezone.utc)
-    z = lambda arr: [v or 0.0 for v in arr]  # noqa: E731 - null -> 0
+    to_float = lambda arr: [float(v) if v is not None else None for v in arr]
+    wind = to_float(h["wind_speed_10m"])
+    rain_raw = to_float(h["rain"])
+    showers_raw = to_float(h["showers"])
+
+    combined_rain = []
+    for r, s in zip(rain_raw, showers_raw):
+        if r is None and s is None:
+            combined_rain.append(None)
+        else:
+            combined_rain.append((r or 0.0) + (s or 0.0))
+
+    snow = to_float(h["snowfall"])
+    temp = to_float(h["temperature_2m"])
     return {
         "base": base,
-        "wind": z(h["wind_speed_10m"]),
-        "rain": [r + s for r, s in zip(z(h["rain"]), z(h["showers"]))],  # in/hr
-        "snow": z(h["snowfall"]),  # in/hr
-        "temp": z(h["temperature_2m"]),
+        "wind": wind,
+        "rain": combined_rain,
+        "snow": snow,
+        "temp": temp,
     }
 
 

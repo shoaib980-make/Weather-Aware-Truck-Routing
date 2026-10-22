@@ -102,8 +102,20 @@ def build_checkpoints(coords, duration_s, depart, interval):
     `segment_miles` is the stretch of road each checkpoint represents (halfway to
     its neighbours), so per-level mileage sums to the route length.
     """
+    if not coords:
+        return []
     cum = cumulative_miles(coords)
     total = cum[-1]
+    if total <= 0 or len(coords) < 2:
+        return [
+            {
+                "mile": 0.0,
+                "lat": coords[0][0],
+                "lon": coords[0][1],
+                "segment_miles": 0.0,
+                "eta": depart,
+            }
+        ]
     marks, m = [], 0.0
     while m < total:
         marks.append(m)

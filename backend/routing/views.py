@@ -92,6 +92,8 @@ def analyze_view(request):
         body = json.loads(request.body or b"{}")
         origin = _place(body.get("origin"), "Origin")
         destination = _place(body.get("destination"), "Destination")
+        if abs(origin["lat"] - destination["lat"]) < 0.0001 and abs(origin["lon"] - destination["lon"]) < 0.0001:
+            raise ValueError("Origin and Destination cannot be the same location.")
         weight = float(body["weight_lb"])
         if weight <= 0 or weight > 200_000:
             raise ValueError("Load weight must be between 1 and 200,000 lb.")
@@ -100,6 +102,8 @@ def analyze_view(request):
             depart = depart.replace(tzinfo=timezone.utc)
         depart = depart.astimezone(timezone.utc)
         interval = body.get("interval_miles", "auto")
+        if interval not in ("auto", 10, 25, 50, "10", "25", "50"):
+            raise ValueError("Checkpoint interval must be 'auto', 10, 25, or 50 miles.")
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         return _error(str(exc) if isinstance(exc, ValueError) else "Missing or invalid fields.")
 
