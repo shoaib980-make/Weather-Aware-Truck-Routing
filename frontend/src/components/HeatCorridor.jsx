@@ -3,16 +3,19 @@ import L from "leaflet";
 import { useMap } from "react-leaflet";
 import { levelColor } from "../risk.js";
 
-const RADIUS_M = 12000;
-const MAX_NODES = 700;
+const RADIUS_M = 14000;
+const MAX_NODES = 600;
 
 /** Interpolate extra points between checkpoints so the heat reads as a continuous corridor. */
 function densify(routes) {
-  const totalMiles = routes.reduce((a, r) => a + r.distance_mi, 0);
-  const step = Math.max(6, totalMiles / MAX_NODES);
+  if (!routes || routes.length === 0) return [];
+  const totalMiles = routes.reduce((a, r) => a + (r.distance_mi || 0), 0);
+  if (totalMiles <= 0) return [];
+  const step = Math.max(8, totalMiles / MAX_NODES);
   const nodes = [];
+
   for (const r of routes) {
-    const cps = r.checkpoints;
+    const cps = r.checkpoints || [];
     for (let i = 0; i < cps.length; i++) {
       const a = cps[i];
       const b = cps[i + 1] || a;
@@ -23,8 +26,8 @@ function densify(routes) {
           lat: a.lat + (b.lat - a.lat) * t,
           lon: a.lon + (b.lon - a.lon) * t,
           t,
-          fa: a.forecast,
-          fb: b.forecast,
+          fa: a.forecast || [],
+          fb: b.forecast || [],
         });
       }
     }
@@ -38,39 +41,78 @@ export default function HeatCorridor({ routes, hour, visible }) {
   const circlesRef = useRef([]);
   const groupRef = useRef(null);
 
-  // Build the layer once per result: a canvas-rendered, softly blurred pane of translucent circles.
+  // Setup pane and layer once per route dataset
   useEffect(() => {
+    if (!map) return;
+
     if (!map.getPane("heat")) {
       const pane = map.createPane("heat");
-      pane.style.zIndex = 350;
-      pane.style.filter = "blur(7px)";
+      pane.style.zIndex = "350";
+      pane.style.filter = "blur(9px)";
       pane.style.pointerEvents = "none";
     }
+
+    if (groupRef.current) {
+      map.removeLayer(groupRef.current);
+      groupRef.current = null;
+      circlesRef.current = [];
+    }
+
+    if (nodes.length === 0) return;
+
     const renderer = L.canvas({ pane: "heat", padding: 0.5 });
     const circles = nodes.map((n) =>
-      L.circle([n.lat, n.lon], { radius: RADIUS_M, stroke: false, fillOpacity: 0.3, renderer, interactive: false })
+      L.circle([n.lat, n.lon], {
+        radius: RADIUS_M,
+        stroke: false,
+        fillOpacity: 0.38,
+        renderer,
+        interactive: false,
+      })
     );
+
     circlesRef.current = circles;
-    groupRef.current = L.layerGroup(circles);
+    const group = L.layerGroup(circles);
+    groupRef.current = group;
+
+    if (visible) {
+      group.addTo(map);
+    }
+
     return () => {
-      map.removeLayer(groupRef.current);
+      if (groupRef.current && map) {
+        map.removeLayer(groupRef.current);
+      }
     };
   }, [map, nodes]);
 
-  // Recolour for the chosen forecast hour; cheap, so the slider stays smooth.
+  // Fast recoloring for the selected forecast hour (no expensive re-render of canvas)
   useEffect(() => {
     const group = groupRef.current;
-    if (!group) return;
+    if (!group || !map) return;
+
     if (!visible) {
-      map.removeLayer(group);
+      if (map.hasLayer(group)) map.removeLayer(group);
       return;
     }
-    if (!map.hasLayer(group)) group.addTo(map);
-    nodes.forEach((n, i) => {
-      const h = Math.min(hour, n.fa.length - 1);
-      const level = n.fa[h][0] * (1 - n.t) + n.fb[h][0] * n.t;
-      circlesRef.current[i].setStyle({ fillColor: levelColor(level) });
-    });
+
+    if (!map.hasLayer(group)) {
+      group.addTo(map);
+    }
+
+    const circles = circlesRef.current;
+    for (let i = 0; i < nodes.length; i++) {
+      const n = nodes[i];
+      if (!circles[i]) continue;
+      const faLen = n.fa.length;
+      const fbLen = n.fb.length;
+      if (faLen === 0 || fbLen === 0) continue;
+
+      const ha = Math.min(hour, faLen - 1);
+      const hb = Math.min(hour, fbLen - 1);
+      const level = n.fa[ha][0] * (1 - n.t) + n.fb[hb][0] * n.t;
+      circles[i].setStyle({ fillColor: levelColor(level) });
+    }
   }, [map, nodes, hour, visible]);
 
   return null;
