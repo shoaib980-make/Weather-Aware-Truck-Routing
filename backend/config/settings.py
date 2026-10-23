@@ -4,7 +4,7 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 SECRET_KEY = os.environ.get("DJANGO_SECRET_KEY", "dev-insecure-key-change-me")
-DEBUG = os.environ.get("DJANGO_DEBUG", "1") == "1"
+DEBUG = os.environ.get("DJANGO_DEBUG", "0") == "1"
 ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS", "*").split(",")
 
 INSTALLED_APPS = [
@@ -37,7 +37,12 @@ DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 WHITENOISE_ROOT = BASE_DIR / "frontend_dist"
 WHITENOISE_INDEX_FILE = True
 
-CORS_ALLOW_ALL_ORIGINS = True  # API is public and credential-free
+CORS_ALLOW_ALL_ORIGINS = False
+
+CORS_ALLOWED_ORIGINS = [
+    "https://safehaul-routeiq-frontend.vercel.app",
+]
+
 CORS_URLS_REGEX = r"^/api/.*$"
 
 # --- Third-party services (all free, no API keys) -------------------------------
