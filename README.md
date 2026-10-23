@@ -29,7 +29,7 @@ No API keys needed: routing = **OSRM**, weather = **Open-Meteo**, geocoding = **
 ```bash
 cd backend
 pip install -r requirements.txt
-python manage.py test          # Run unit test suite (13 tests)
+python manage.py test          # Run unit test suite (21 tests)
 python manage.py runserver     # Starts API on http://127.0.0.1:8000
 ```
 
@@ -38,6 +38,7 @@ python manage.py runserver     # Starts API on http://127.0.0.1:8000
 ```bash
 cd frontend
 npm install
+npm test                       # Run frontend unit tests (6 tests via node:test)
 npm run dev                    # Starts Vite on http://localhost:5173 (proxies /api to Django)
 ```
 
