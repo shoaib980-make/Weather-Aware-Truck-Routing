@@ -200,7 +200,6 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
     rec_id = analysis_data.get("recommended_id")
     recommended_route = next((r for r in routes if r.get("id") == rec_id), routes[0] if routes else None)
     all_prohibited = analysis_data.get("all_prohibited", False)
-    trade_off = analysis_data.get("trade_off", {})
     provenance = analysis_data.get("data_provenance", {})
 
     origin_label = trip_data.get("origin", {}).get("label") or trip_data.get("origin_label", "Origin Location")
@@ -216,8 +215,11 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
     rec_name = recommended_route.get("name", "N/A") if recommended_route else "None Available"
     rec_dist = f"{recommended_route.get('distance_mi', 0):.1f} mi" if recommended_route else "—"
     rec_dur = _fmt_duration(recommended_route.get("duration_s", 0)) if recommended_route else "—"
-    rec_risk_mi = f"{recommended_route.get('trade_off_metrics', {}).get('elevated_risk_miles', 0):.1f} mi" if recommended_route else "—"
-    rec_class = recommended_route.get("trade_off_metrics", {}).get("risk_classification", "Normal") if recommended_route else "N/A"
+    s_rec = recommended_route.get("stats", {}) if recommended_route else {}
+    rec_elevated_mi = round(s_rec.get("severe_miles", 0) + s_rec.get("high_miles", 0) + s_rec.get("no_travel_miles", 0), 1)
+    rec_risk_mi = f"{rec_elevated_mi:.1f} mi" if recommended_route else "—"
+    max_lvl = s_rec.get("max_level", 0)
+    rec_class = LEVELS[max_lvl] if max_lvl < len(LEVELS) else "Normal"
 
     exec_summary_data = [
         [
@@ -265,64 +267,11 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
     story.append(exec_tbl)
     story.append(Spacer(1, 10))
 
-    # 3. Route Recommendation & Trade-Off Analysis Section
-    story.append(Paragraph("1. Route Recommendation & Trade-Off Analysis", h2_style))
-
-    why_rec = trade_off.get("why_recommended") or analysis_data.get("rationale") or "Optimal corridor balance."
-    why_not_fastest = trade_off.get("why_shortest_not_recommended") or ""
-
-    narrative = f"<b>Decision Rationale:</b> {why_rec}"
-    if why_not_fastest and not trade_off.get("is_same_route", False):
-        narrative += f"<br/><br/><b>Trade-Off vs. Fastest Alternative:</b> {why_not_fastest}"
-
-    story.append(Paragraph(narrative, body_style))
-    story.append(Spacer(1, 8))
-
-    # Trade-off metrics mini-table
-    if trade_off and not trade_off.get("is_same_route", False):
-        to_data = [
-            [
-                Paragraph("<b>Trade-Off Metric</b>", tbl_header),
-                Paragraph("<b>Fastest Feasible Route</b>", tbl_header),
-                Paragraph("<b>Recommended Safer Route</b>", tbl_header),
-                Paragraph("<b>Net Dispatch Trade-Off</b>", tbl_header),
-            ],
-            [
-                Paragraph("Corridor Identifier", tbl_cell),
-                Paragraph(str(trade_off.get("fastest_route_name", "Fastest")), tbl_cell_bold),
-                Paragraph(str(trade_off.get("recommended_route_name", "Recommended")), tbl_cell_bold),
-                Paragraph("Safer Alternative Selected", tbl_cell),
-            ],
-            [
-                Paragraph("Elevated Risk Miles", tbl_cell),
-                Paragraph(f"{trade_off.get('fastest_elevated_risk_miles', 0):.1f} mi", tbl_cell),
-                Paragraph(f"{trade_off.get('recommended_elevated_risk_miles', 0):.1f} mi", tbl_cell),
-                Paragraph(f"<font color='{c_success.hexval()}'><b>-{trade_off.get('risk_reduction_mi', 0):.1f} mi ({trade_off.get('risk_reduction_pct', 0):.1f}% reduction)</b></font>", tbl_cell),
-            ],
-            [
-                Paragraph("Travel Duration", tbl_cell),
-                Paragraph("Baseline Fastest", tbl_cell),
-                Paragraph(f"+{trade_off.get('additional_travel_time_min', 0)} min", tbl_cell),
-                Paragraph(f"+{trade_off.get('additional_travel_time_min', 0)} min driving time penalty", tbl_cell),
-            ],
-            [
-                Paragraph("Highway Distance", tbl_cell),
-                Paragraph("Baseline Distance", tbl_cell),
-                Paragraph(f"+{trade_off.get('additional_distance_mi', 0):.1f} mi", tbl_cell),
-                Paragraph(f"+{trade_off.get('additional_distance_mi', 0):.1f} mi extra mileage", tbl_cell),
-            ],
-        ]
-        to_tbl = Table(to_data, colWidths=[120, 125, 125, 152])
-        to_tbl.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, 0), c_brand),
-            ("BOX", (0, 0), (-1, -1), 0.75, c_border),
-            ("INNERGRID", (0, 0), (-1, -1), 0.5, c_border),
-            ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, c_bg_subtle]),
-            ("TOPPADDING", (0, 0), (-1, -1), 4),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-        ]))
-        story.append(to_tbl)
-        story.append(Spacer(1, 10))
+    # 3. Route Recommendation & Decision Rationale Section
+    story.append(Paragraph("1. Route Recommendation & Decision Rationale", h2_style))
+    why_rec = analysis_data.get("rationale") or "Optimal corridor balance."
+    story.append(Paragraph(f"<b>Decision Rationale:</b> {why_rec}", body_style))
+    story.append(Spacer(1, 10))
 
     # 4. Evaluated Route Alternatives Table
     story.append(Paragraph("2. Evaluated Route Alternatives Comparison", h2_style))
@@ -341,7 +290,7 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
     for r in routes:
         s = r.get("stats", {})
         ev = r.get("evaluation", {})
-        m = r.get("trade_off_metrics", {})
+        elevated_mi = round(s.get("severe_miles", 0) + s.get("high_miles", 0) + s.get("no_travel_miles", 0), 1)
         is_rec = r.get("id") == rec_id
 
         badge_str = f"<b>{r.get('name')}</b>"
@@ -351,14 +300,14 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
             badge_str += " <font color='#dc2626'>[PROHIBITED]</font>"
 
         eta_str = _fmt_time(r.get("checkpoints", [{}])[-1].get("eta")) if r.get("checkpoints") else "—"
-        verdict = ev.get("verdict") or m.get("risk_classification") or "Evaluated"
+        verdict = ev.get("verdict") or (LEVELS[s.get("max_level", 0)] if s else "Evaluated")
 
         alt_rows.append([
             Paragraph(badge_str, tbl_cell),
             Paragraph(f"{r.get('distance_mi', 0):.1f} mi", tbl_cell),
             Paragraph(_fmt_duration(r.get("duration_s", 0)), tbl_cell),
             Paragraph(eta_str, tbl_cell),
-            Paragraph(f"<b>{m.get('elevated_risk_miles', 0):.1f} mi</b>", tbl_cell),
+            Paragraph(f"<b>{elevated_mi:.1f} mi</b>", tbl_cell),
             Paragraph(f"{s.get('avg_risk', 0):.2f} / 4.0", tbl_cell),
             Paragraph(verdict, tbl_cell),
         ])
@@ -373,62 +322,11 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
         ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
     ]))
     story.append(alt_tbl)
-    story.append(Spacer(1, 10))
-
-    # 5. Non-Overlapping Hazard Exposure Breakdown
-    story.append(Paragraph("3. Physical Hazard Exposure Breakdown", h2_style))
-    story.append(Paragraph(
-        "<i>Methodology: Risk miles represent road segments subject to elevated weather hazards. "
-        "Hazard segments are measured along highway centerline checkpoints to eliminate double-counting.</i>",
-        small_style
-    ))
-    story.append(Spacer(1, 4))
-
-    haz_headers = [
-        Paragraph("<b>Corridor</b>", tbl_header),
-        Paragraph("<b>High Wind (&ge;35 mph)</b>", tbl_header),
-        Paragraph("<b>Heavy Rain (&gt;0.25\")</b>", tbl_header),
-        Paragraph("<b>Snow / Ice (&gt;0.5\")</b>", tbl_header),
-        Paragraph("<b>Severe Storms</b>", tbl_header),
-        Paragraph("<b>No Travel (Restricted)</b>", tbl_header),
-        Paragraph("<b>Total Audited mi</b>", tbl_header),
-    ]
-    haz_rows = [haz_headers]
-
-    for r in routes:
-        m = r.get("trade_off_metrics", {})
-        hb = m.get("hazard_breakdown", {})
-        s = r.get("stats", {})
-
-        haz_rows.append([
-            Paragraph(f"<b>{r.get('name')}</b>", tbl_cell),
-            Paragraph(f"{hb.get('high_wind_miles', 0):.1f} mi", tbl_cell),
-            Paragraph(f"{hb.get('heavy_rain_miles', 0):.1f} mi", tbl_cell),
-            Paragraph(f"{hb.get('snow_ice_miles', 0):.1f} mi", tbl_cell),
-            Paragraph(f"{hb.get('severe_conditions_miles', 0):.1f} mi", tbl_cell),
-            Paragraph(
-                f"<font color='{c_danger.hexval()}'><b>{s.get('no_travel_miles', 0):.1f} mi</b></font>"
-                if s.get("no_travel_miles", 0) > 0 else "0.0 mi",
-                tbl_cell
-            ),
-            Paragraph(f"<b>{s.get('audited_miles_sum', r.get('distance_mi', 0)):.1f} mi</b>", tbl_cell_bold),
-        ])
-
-    haz_tbl = Table(haz_rows, colWidths=[92, 75, 75, 70, 70, 75, 65])
-    haz_tbl.setStyle(TableStyle([
-        ("BACKGROUND", (0, 0), (-1, 0), c_brand),
-        ("BOX", (0, 0), (-1, -1), 0.75, c_border),
-        ("INNERGRID", (0, 0), (-1, -1), 0.5, c_border),
-        ("ROWBACKGROUNDS", (0, 1), (-1, -1), [colors.white, c_bg_subtle]),
-        ("TOPPADDING", (0, 0), (-1, -1), 4),
-        ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
-    ]))
-    story.append(haz_tbl)
     story.append(Spacer(1, 14))
 
-    # 6. Checkpoint Weather & Arrival Log Table (for recommended route)
+    # 5. Checkpoint Weather & Arrival Log Table (for recommended route)
     story.append(PageBreak())  # Clean break to ensure checkpoint log starts on Page 2
-    story.append(Paragraph(f"4. Waypoint & Weather Log: {rec_name}", h2_style))
+    story.append(Paragraph(f"3. Waypoint & Weather Log: {rec_name}", h2_style))
     story.append(Paragraph(
         f"Highway checkpoints sampled at regular intervals along {rec_name}. "
         "Weather values reflect Open-Meteo hourly numerical weather predictions matched to the truck's projected waypoint ETA.",
@@ -500,9 +398,9 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
     story.append(cp_tbl)
     story.append(Spacer(1, 14))
 
-    # 7. Data Limitations & Legal Safety Notice
+    # 6. Data Limitations & Legal Safety Notice
     story.append(KeepTogether([
-        Paragraph("5. Data Limitations & Safety Notice", h2_style),
+        Paragraph("4. Data Limitations & Safety Notice", h2_style),
         Paragraph(
             "<b>Forecast Provenance:</b> Weather data is retrieved via Open-Meteo Global Numerical Weather Prediction (Seamless). "
             f"Model base run: {_fmt_time(provenance.get('model_base_time'))} | Cache status: {provenance.get('cache_status', 'N/A')} | "

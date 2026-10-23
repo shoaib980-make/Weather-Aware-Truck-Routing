@@ -46,20 +46,12 @@ def main():
     }
     status, result = post_json(f"{BASE_URL}/api/analyze", analyze_payload)
     assert status == 200, f"Expected 200, got {status}"
-    assert "trade_off" in result, "Trade-off summary missing from /api/analyze"
-    trade_off = result["trade_off"]
-    print(f"   -> Fastest Route ID: {trade_off.get('fastest_route_id')}")
-    print(f"   -> Safest Route ID: {trade_off.get('safest_route_id')}")
-    print(f"   -> Recommended Route ID: {trade_off.get('recommended_route_id')}")
-    print(f"   -> Additional Travel Time: {trade_off.get('additional_travel_time_min')} min")
-    print(f"   -> Additional Distance: {trade_off.get('additional_distance_mi')} mi")
-    print(f"   -> Risk Mile Reduction: {trade_off.get('risk_reduction_mi')} mi ({trade_off.get('risk_reduction_pct')}%)")
-    print(f"   -> Avoided Hazards: {trade_off.get('avoided_hazards')}")
-    print(f"   -> Rationale: {trade_off.get('why_recommended')}")
     assert len(result["routes"]) >= 1, "No routes returned"
+    print(f"   -> Routes Analyzed: {len(result['routes'])}")
+    print(f"   -> Recommended Route ID: {result.get('recommended_id')}")
+    print(f"   -> Rationale: {result.get('rationale')}")
     r0 = result["routes"][0]
-    assert "hazard_breakdown" in r0, "Hazard breakdown missing from route"
-    print(f"   -> Route 1 Hazard Breakdown: {r0['hazard_breakdown']}")
+    print(f"   -> Route 1 Distance: {r0['distance_mi']} mi, Checkpoints: {len(r0['checkpoints'])}")
 
     # 2. Test On-Demand PDF Generation
     print("\n2. Testing On-Demand PDF Report (POST /api/report/pdf)...")

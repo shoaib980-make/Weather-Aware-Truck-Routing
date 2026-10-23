@@ -11,8 +11,6 @@ import {
 import { Icon } from "./Icons.jsx";
 import RouteRiskTimeline from "./RouteRiskTimeline.jsx";
 import DataProvenanceCard from "./DataProvenanceCard.jsx";
-import RouteTradeOffCard from "./RouteTradeOffCard.jsx";
-import RouteRiskBreakdownChart from "./RouteRiskBreakdownChart.jsx";
 
 function MixBar({ miles }) {
   const total = Object.values(miles).reduce((a, b) => a + b, 0) || 1;
@@ -69,7 +67,6 @@ function RouteCard({
 }) {
   const s = route.stats;
   const ev = route.evaluation;
-  const m = route.trade_off_metrics || {};
   const eta = calcETA(departureTime, route.duration_s);
   const color = ROUTE_COLORS[(route.id - 1) % 3];
   const hasNoTravel = (s.no_travel_miles || 0) > 0;
@@ -107,18 +104,6 @@ function RouteCard({
             <span className="badge recommended-badge">
               <Icon name="shield-check" size={13} />
               <span>Recommended</span>
-            </span>
-          )}
-          {m.is_fastest && !recommended && (
-            <span className="badge fastest-badge" title="Lowest driving duration among candidate options">
-              <Icon name="clock" size={13} />
-              <span>Fastest</span>
-            </span>
-          )}
-          {m.is_safest && !recommended && (
-            <span className="badge safest-badge" title="Lowest overall risk exposure">
-              <Icon name="shield" size={13} />
-              <span>Lowest Risk</span>
             </span>
           )}
           {hasNoTravel ? (
@@ -328,52 +313,6 @@ function ComparisonMatrix({ routes, departureTime, recommendedId, selectedId, on
                   {fmtTime(calcETA(departureTime, r.duration_s))}
                 </td>
               ))}
-            </tr>
-            <tr>
-              <td className="row-label">Elevated Risk Miles</td>
-              {routes.map((r) => {
-                const m = r.trade_off_metrics || {};
-                return (
-                  <td key={r.id} className={r.id === selectedId ? "active-column" : ""}>
-                    <strong className={m.elevated_risk_miles > 0 ? "text-danger" : "text-success"}>
-                      {m.elevated_risk_miles || 0} mi ({m.elevated_risk_pct || 0}%)
-                    </strong>
-                  </td>
-                );
-              })}
-            </tr>
-            <tr>
-              <td className="row-label">High Wind Exposure</td>
-              {routes.map((r) => {
-                const hb = r.trade_off_metrics?.hazard_breakdown || {};
-                return (
-                  <td key={r.id} className={r.id === selectedId ? "active-column" : ""}>
-                    {hb.high_wind_miles ? `${hb.high_wind_miles} mi` : "0.0 mi"}
-                  </td>
-                );
-              })}
-            </tr>
-            <tr>
-              <td className="row-label">Heavy Rain Exposure</td>
-              {routes.map((r) => {
-                const hb = r.trade_off_metrics?.hazard_breakdown || {};
-                return (
-                  <td key={r.id} className={r.id === selectedId ? "active-column" : ""}>
-                    {hb.heavy_rain_miles ? `${hb.heavy_rain_miles} mi` : "0.0 mi"}
-                  </td>
-                );
-              })}
-            </tr>
-            <tr>
-              <td className="row-label">Snow / Ice Exposure</td>
-              {routes.map((r) => {
-                const hb = r.trade_off_metrics?.hazard_breakdown || {};
-                return (
-                  <td key={r.id} className={r.id === selectedId ? "active-column" : ""}>
-                    {hb.snow_ice_miles ? `${hb.snow_ice_miles} mi` : "0.0 mi"}
-                  </td>
-                );
-              })}
             </tr>
             <tr>
               <td className="row-label">No Travel Miles</td>
@@ -607,7 +546,7 @@ export default function RouteList({
   onDownloadPdf,
   isDownloadingPdf,
 }) {
-  const [activeTab, setActiveTab] = useState("cards"); // 'cards' | 'hazards' | 'matrix' | 'checkpoints'
+  const [activeTab, setActiveTab] = useState("cards"); // 'cards' | 'matrix' | 'checkpoints'
   const [copied, setCopied] = useState(false);
 
   const selected = result.routes.find((r) => r.id === selectedId) || result.routes[0];
@@ -698,15 +637,6 @@ Rationale: ${result.rationale}`;
         <p className="rec-rationale">{result.rationale}</p>
       </div>
 
-      {/* Route Trade-Off & Safety Analysis Card */}
-      {result.trade_off && (
-        <RouteTradeOffCard
-          tradeOff={result.trade_off}
-          selectedRoute={selected}
-          departureTime={departureTime}
-        />
-      )}
-
       {/* Route notice if fewer than 3 distinct routes were returned */}
       {result.route_notice && (
         <div className="route-notice-banner" role="status">
@@ -739,16 +669,6 @@ Rationale: ${result.rationale}`;
         >
           <Icon name="layers" size={15} />
           <span>Route Cards</span>
-        </button>
-        <button
-          type="button"
-          role="tab"
-          aria-selected={activeTab === "hazards"}
-          className={`tab-btn ${activeTab === "hazards" ? "active" : ""}`}
-          onClick={() => setActiveTab("hazards")}
-        >
-          <Icon name="bar-chart-2" size={15} />
-          <span>Hazard Breakdown</span>
         </button>
         <button
           type="button"
@@ -788,14 +708,6 @@ Rationale: ${result.rationale}`;
               />
             ))}
           </div>
-        )}
-
-        {activeTab === "hazards" && (
-          <RouteRiskBreakdownChart
-            routes={result.routes}
-            selectedId={selectedId}
-            onSelect={onSelect}
-          />
         )}
 
         {activeTab === "matrix" && (

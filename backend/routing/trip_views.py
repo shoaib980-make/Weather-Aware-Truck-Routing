@@ -94,7 +94,7 @@ def trips_collection_view(request):
             recommended_id=analysis_payload.get("recommended_id"),
             all_prohibited=analysis_payload.get("all_prohibited", False),
             rationale=analysis_payload.get("rationale", ""),
-            trade_off=analysis_payload.get("trade_off", {}),
+            trade_off={},
             result_data=analysis_payload,
         )
 
@@ -233,7 +233,7 @@ def trip_reanalyze_view(request, trip_id):
         recommended_id=result.get("recommended_id"),
         all_prohibited=result.get("all_prohibited", False),
         rationale=result.get("rationale", ""),
-        trade_off=result.get("trade_off", {}),
+        trade_off={},
         result_data=result,
     )
 

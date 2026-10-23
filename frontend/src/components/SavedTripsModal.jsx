@@ -411,11 +411,11 @@ function CompareVersionsDialog({ trip, onClose, onDownloadPdf }) {
   const verA = analyses[verAIndex] || {};
   const verB = analyses[verBIndex] || {};
 
-  const toA = verA.trade_off || {};
-  const toB = verB.trade_off || {};
+  const routeNameA = verA.recommended_route_name || (verA.recommended_id ? `Route ${verA.recommended_id}` : "Route 1");
+  const routeNameB = verB.recommended_route_name || (verB.recommended_id ? `Route ${verB.recommended_id}` : "Route 1");
 
-  const riskA = toA.recommended_elevated_risk_miles || 0;
-  const riskB = toB.recommended_elevated_risk_miles || 0;
+  const riskA = verA.recommended_risk_miles || 0;
+  const riskB = verB.recommended_risk_miles || 0;
   const riskDelta = Math.round((riskB - riskA) * 10) / 10;
 
   return (
@@ -480,11 +480,11 @@ function CompareVersionsDialog({ trip, onClose, onDownloadPdf }) {
             <div className="cdb-item">
               <span className="cdb-label">Recommendation Shift</span>
               <span className="cdb-val">
-                {toA.recommended_route_name === toB.recommended_route_name ? (
-                  `Consistent: ${toB.recommended_route_name || "Route 1"}`
+                {routeNameA === routeNameB ? (
+                  `Consistent: ${routeNameB}`
                 ) : (
                   <span className="text-warning">
-                    {toA.recommended_route_name} → {toB.recommended_route_name}
+                    {routeNameA} → {routeNameB}
                   </span>
                 )}
               </span>
@@ -515,8 +515,8 @@ function CompareVersionsDialog({ trip, onClose, onDownloadPdf }) {
               </tr>
               <tr>
                 <td className="row-label">Recommended Corridor</td>
-                <td>{toA.recommended_route_name || "Route 1"}</td>
-                <td>{toB.recommended_route_name || "Route 1"}</td>
+                <td>{routeNameA}</td>
+                <td>{routeNameB}</td>
               </tr>
               <tr>
                 <td className="row-label">Elevated Risk Miles</td>

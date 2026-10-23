@@ -466,62 +466,6 @@ class ApiAndIntegrationTests(SimpleTestCase):
         self.assertEqual(hazards[0]["level"], 2)
         self.assertEqual(hazards[0]["wind_mph"], 48.0)
 
-    def test_route_trade_off_analysis(self):
-        """Verify trade-off metrics between fastest and recommended routes."""
-        from .tradeoff import analyze_route_trade_offs
-
-        r_fast = {
-            "id": 1,
-            "name": "Route 1 (I-80)",
-            "distance_mi": 420.0,
-            "duration_s": 25800,  # 7h 10m
-            "checkpoints": [
-                {"segment_miles": 50.0, "level": 3, "wind_mph": 48.0, "rain_in_hr": 0.4},
-                {"segment_miles": 370.0, "level": 0, "wind_mph": 12.0, "rain_in_hr": 0.0},
-            ],
-            "stats": {
-                "no_travel_miles": 0.0,
-                "severe_miles": 50.0,
-                "high_miles": 0.0,
-                "moderate_miles": 0.0,
-                "low_miles": 370.0,
-                "unknown_miles": 0.0,
-                "avg_risk": 0.36,
-            }
-        }
-
-        r_safe = {
-            "id": 2,
-            "name": "Route 2 (I-70)",
-            "distance_mi": 448.0,
-            "duration_s": 28500,  # 7h 55m (+45 min)
-            "checkpoints": [
-                {"segment_miles": 448.0, "level": 0, "wind_mph": 10.0, "rain_in_hr": 0.0},
-            ],
-            "stats": {
-                "no_travel_miles": 0.0,
-                "severe_miles": 0.0,
-                "high_miles": 0.0,
-                "moderate_miles": 0.0,
-                "low_miles": 448.0,
-                "unknown_miles": 0.0,
-                "avg_risk": 0.0,
-            }
-        }
-
-        routes, summary = analyze_route_trade_offs([r_fast, r_safe], r_safe, weight_lb=45000)
-        self.assertEqual(summary["fastest_route_id"], 1)
-        self.assertEqual(summary["safest_route_id"], 2)
-        self.assertEqual(summary["recommended_route_id"], 2)
-        self.assertFalse(summary["is_same_route"])
-        self.assertEqual(summary["additional_travel_time_min"], 45)
-        self.assertEqual(summary["additional_distance_mi"], 28.0)
-        self.assertEqual(summary["risk_reduction_mi"], 50.0)
-        self.assertEqual(summary["risk_reduction_pct"], 100.0)
-        self.assertIn("avoided_hazards", summary)
-        self.assertTrue(len(summary["why_recommended"]) > 0)
-        self.assertTrue(len(summary["why_shortest_not_recommended"]) > 0)
-
     def test_pdf_report_generation(self):
         """Verify that a valid, multi-page PDF is generated from analysis snapshot."""
         from .report_pdf import generate_trip_safety_pdf
@@ -543,12 +487,6 @@ class ApiAndIntegrationTests(SimpleTestCase):
                 "forecast_valid_start": "2026-10-24T08:00:00Z",
                 "forecast_valid_end": "2026-10-25T08:00:00Z",
             },
-            "trade_off": {
-                "fastest_route_name": "Route 1",
-                "recommended_route_name": "Route 1",
-                "is_same_route": True,
-                "why_recommended": "Fastest and safest corridor.",
-            },
             "routes": [
                 {
                     "id": 1,
@@ -564,17 +502,6 @@ class ApiAndIntegrationTests(SimpleTestCase):
                         "unknown_miles": 0.0,
                         "avg_risk": 0.01,
                         "audited_miles_sum": 1005.0,
-                    },
-                    "trade_off_metrics": {
-                        "elevated_risk_miles": 0.0,
-                        "risk_classification": "Low",
-                        "hazard_breakdown": {
-                            "high_wind_miles": 0.0,
-                            "heavy_rain_miles": 0.0,
-                            "snow_ice_miles": 0.0,
-                            "severe_conditions_miles": 0.0,
-                            "unknown_weather_miles": 0.0,
-                        }
                     },
                     "checkpoints": [
                         {

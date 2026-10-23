@@ -58,66 +58,6 @@ test("Route rejection delta metrics formatting", () => {
   assert.equal(`+${severeDiffMiles} mi severe`, "+18.4 mi severe");
 });
 
-test("Trade-off metric calculations between Fastest and Recommended routes", () => {
-  const fastest = {
-    duration_s: 25800, // 7h 10m
-    distance_mi: 420.0,
-    risk_miles: 85.0,
-  };
-  const recommended = {
-    duration_s: 28500, // 7h 55m
-    distance_mi: 448.0,
-    risk_miles: 24.0,
-  };
-
-  const additionalDurationMin = Math.round((recommended.duration_s - fastest.duration_s) / 60);
-  const additionalDistanceMi = Number((recommended.distance_mi - fastest.distance_mi).toFixed(1));
-  const riskMileReduction = Number((fastest.risk_miles - recommended.risk_miles).toFixed(1));
-  const riskReductionPct = fastest.risk_miles > 0
-    ? Number(((riskMileReduction / fastest.risk_miles) * 100).toFixed(1))
-    : 0;
-
-  assert.equal(additionalDurationMin, 45);
-  assert.equal(additionalDistanceMi, 28.0);
-  assert.equal(riskMileReduction, 61.0);
-  assert.equal(riskReductionPct, 71.8);
-});
-
-test("Trade-off handles zero baseline risk miles and negative deltas honestly", () => {
-  const fastest = {
-    duration_s: 20000,
-    distance_mi: 300.0,
-    risk_miles: 0.0,
-  };
-  const recommended = {
-    duration_s: 20000,
-    distance_mi: 300.0,
-    risk_miles: 0.0,
-  };
-
-  const riskReduction = fastest.risk_miles - recommended.risk_miles;
-  const pct = fastest.risk_miles > 0 ? (riskReduction / fastest.risk_miles) * 100 : 0;
-  assert.equal(riskReduction, 0);
-  assert.equal(pct, 0);
-});
-
-test("Hazard breakdown aggregation does not exceed route total distance", () => {
-  const route = {
-    distance_mi: 500.0,
-    hazard_breakdown: {
-      winds: 45.0,
-      rain: 30.0,
-      snow: 15.0,
-      severe: 10.0,
-      unknown: 5.0,
-      nominal: 395.0,
-    },
-  };
-
-  const hazardSum = Object.values(route.hazard_breakdown).reduce((a, b) => a + b, 0);
-  assert.equal(Math.round(hazardSum), 500);
-});
-
 test("PDF report filename generation follows standard format", () => {
   const today = "2026-10-23";
   const filename = `SafeHaul_RouteIQ_Trip_Report_${today}.pdf`;

@@ -61,7 +61,9 @@ class TripAnalysis(models.Model):
         # Extract quick metrics from result_data if available
         routes = self.result_data.get("routes", [])
         rec_route = next((r for r in routes if r.get("id") == self.recommended_id), None) if routes else None
-        
+        rec_stats = rec_route.get("stats", {}) if rec_route else {}
+        elevated_mi = round(rec_stats.get("severe_miles", 0) + rec_stats.get("high_miles", 0) + rec_stats.get("no_travel_miles", 0), 1)
+
         return {
             "id": self.id,
             "version": self.version,
@@ -72,13 +74,12 @@ class TripAnalysis(models.Model):
             "all_prohibited": self.all_prohibited,
             "rationale": self.rationale,
             "forecast_reference_time": self.forecast_reference_time,
-            "trade_off": self.trade_off,
             "provider_metadata": self.provider_metadata,
             "recommended_route_name": rec_route.get("name") if rec_route else None,
             "recommended_distance_mi": rec_route.get("distance_mi") if rec_route else None,
             "recommended_duration_s": rec_route.get("duration_s") if rec_route else None,
-            "recommended_risk_level": rec_route.get("stats", {}).get("max_level") if rec_route else None,
-            "recommended_risk_miles": rec_route.get("trade_off_metrics", {}).get("elevated_risk_miles") if rec_route else None,
+            "recommended_risk_level": rec_stats.get("max_level") if rec_route else None,
+            "recommended_risk_miles": elevated_mi if rec_route else None,
         }
 
     def to_full_dict(self):
