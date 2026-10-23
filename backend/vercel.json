@@ -1,0 +1,18 @@
+{
+  "functions": {
+    "config/wsgi.py": {
+      "maxDuration": 60,
+      "memory": 1024
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/:match*",
+      "destination": "/config/wsgi.py"
+    },
+    {
+      "source": "/:match*",
+      "destination": "/config/wsgi.py"
+    }
+  ]
+}
