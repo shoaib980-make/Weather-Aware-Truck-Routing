@@ -1,6 +1,7 @@
 {
   "functions": {
     "config/wsgi.py": {
+      "includeFiles": "frontend_dist/**",
       "maxDuration": 60,
       "memory": 1024
     }

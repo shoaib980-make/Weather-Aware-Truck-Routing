@@ -5,7 +5,6 @@ __pycache__/
 .env
 venv/
 backend/venv/
-backend/frontend_dist/
 backend/staticfiles/
 *.sqlite3
 db.sqlite3
