@@ -200,7 +200,7 @@ export default function App() {
         <aside className={`app-sidebar ${mobileTab === "map" ? "mobile-hidden" : ""}`}>
           <div className="sidebar-scroll-content">
             {/* Trip Form Accordion / Section */}
-            <section className="trip-config-section">
+            <section className={`trip-config-section ${mobileTab === "routes" ? "mobile-tab-hidden" : ""}`}>
               <div className="section-header">
                 <h2 className="section-title">
                   <Icon name="truck" size={16} />
@@ -234,25 +234,27 @@ export default function App() {
 
             {/* Route Comparison or Empty State */}
             {result ? (
-              <RouteList
-                result={result}
-                departureTime={departureTime}
-                selectedId={selectedId}
-                onSelect={(id) => {
-                  setSelectedId(id);
-                  setActiveCheckpoint(null);
-                }}
-                onSelectCheckpoint={handleSelectCheckpoint}
-                activeCheckpoint={activeCheckpoint}
-                onRefreshForecast={handleRefreshForecast}
-                refreshLoading={refreshLoading}
-                forecastHour={hour}
-                onSyncForecastHour={setHour}
-                onSaveTrip={handleSaveTrip}
-                isSavingTrip={isSavingTrip}
-                onDownloadPdf={handleDownloadPdf}
-                isDownloadingPdf={isDownloadingPdf}
-              />
+              <div className={`routes-view-wrapper ${mobileTab === "setup" ? "mobile-tab-hidden" : ""}`}>
+                <RouteList
+                  result={result}
+                  departureTime={departureTime}
+                  selectedId={selectedId}
+                  onSelect={(id) => {
+                    setSelectedId(id);
+                    setActiveCheckpoint(null);
+                  }}
+                  onSelectCheckpoint={handleSelectCheckpoint}
+                  activeCheckpoint={activeCheckpoint}
+                  onRefreshForecast={handleRefreshForecast}
+                  refreshLoading={refreshLoading}
+                  forecastHour={hour}
+                  onSyncForecastHour={setHour}
+                  onSaveTrip={handleSaveTrip}
+                  isSavingTrip={isSavingTrip}
+                  onDownloadPdf={handleDownloadPdf}
+                  isDownloadingPdf={isDownloadingPdf}
+                />
+              </div>
             ) : (
               !loading && (
                 <div className="empty-state-card">

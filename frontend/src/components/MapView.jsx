@@ -27,6 +27,20 @@ const BASE_LAYERS = {
 function FitRoutesHandler({ routes, activeCheckpoint }) {
   const map = useMap();
 
+  // Invalidate map size on window resize and container visibility changes
+  useEffect(() => {
+    if (!map) return;
+    const handleResize = () => {
+      map.invalidateSize();
+    };
+    window.addEventListener("resize", handleResize);
+    const timer = setTimeout(handleResize, 200);
+    return () => {
+      window.removeEventListener("resize", handleResize);
+      clearTimeout(timer);
+    };
+  }, [map]);
+
   useEffect(() => {
     if (!routes || routes.length === 0) return;
     const allCoords = routes.flatMap((r) => r.geometry || []);

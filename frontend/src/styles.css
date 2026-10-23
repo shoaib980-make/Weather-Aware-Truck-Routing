@@ -1178,6 +1178,86 @@ button, input, select, textarea {
 }
 
 /* ==========================================================================
+   Side-by-Side Comparison Matrix
+   ========================================================================== */
+
+.matrix-wrapper {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
+}
+
+.matrix-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  max-width: 100%;
+}
+
+.comparison-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 13px;
+  min-width: 500px;
+}
+
+.comparison-table th,
+.comparison-table td {
+  padding: 10px 14px;
+  border-bottom: 1px solid var(--border-light);
+  text-align: left;
+}
+
+.comparison-table th {
+  background: var(--bg-subtle);
+  font-weight: 700;
+  color: var(--text-main);
+  position: sticky;
+  top: 0;
+  z-index: 2;
+}
+
+.comparison-table .row-label {
+  font-weight: 600;
+  color: var(--text-muted);
+  width: 180px;
+  min-width: 160px;
+  background: var(--bg-surface);
+}
+
+.comparison-table .active-column {
+  background: rgba(37, 99, 235, 0.04);
+}
+
+[data-theme="dark"] .comparison-table .active-column {
+  background: rgba(59, 130, 246, 0.08);
+}
+
+.col-header-wrap {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.col-swatch {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.mini-badge {
+  font-size: 10px;
+  font-weight: 700;
+  background: var(--risk-low-bg);
+  color: var(--risk-low);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  text-transform: uppercase;
+}
+
+/* ==========================================================================
    Checkpoint Table Component
    ========================================================================== */
 
@@ -2170,6 +2250,23 @@ button, input, select, textarea {
    Responsive Breakpoints & Mobile Optimization
    ========================================================================== */
 
+/* Tablet & Smaller Laptops */
+@media (max-width: 1024px) {
+  .brand-tagline {
+    display: none;
+  }
+
+  .preset-dropdown {
+    max-width: 160px;
+    font-size: 12px;
+  }
+
+  .header-actions {
+    gap: 8px;
+  }
+}
+
+/* Mobile & Tablet Portrait */
 @media (max-width: 900px) {
   .app-workspace {
     flex-direction: column;
@@ -2189,6 +2286,10 @@ button, input, select, textarea {
   }
 
   .mobile-pane-hidden {
+    display: none !important;
+  }
+
+  .mobile-tab-hidden {
     display: none !important;
   }
 
@@ -2218,6 +2319,8 @@ button, input, select, textarea {
     font-weight: 600;
     color: var(--text-muted);
     cursor: pointer;
+    min-height: 48px;
+    padding: 6px 0;
   }
 
   .mobile-nav-item.active {
@@ -2225,7 +2328,7 @@ button, input, select, textarea {
   }
 
   .sidebar-scroll-content {
-    padding-bottom: 80px;
+    padding-bottom: 84px;
   }
 
   .heat-slider-container {
@@ -2245,6 +2348,187 @@ button, input, select, textarea {
 
   .route-metrics-grid {
     grid-template-columns: 1fr 1fr;
+  }
+
+  /* Compact header on tablets/mobile */
+  .header-btn .btn-label {
+    display: none;
+  }
+
+  .header-btn {
+    padding: 8px 10px;
+  }
+
+  .service-status .status-text {
+    display: none;
+  }
+
+  .service-status {
+    padding: 6px;
+  }
+}
+
+/* Phones & Small Screens */
+@media (max-width: 640px) {
+  .app-header {
+    height: 56px;
+    padding: 0 12px;
+  }
+
+  .brand-logo {
+    width: 34px;
+    height: 34px;
+  }
+
+  .brand-name {
+    font-size: 16px;
+  }
+
+  .preset-dropdown {
+    max-width: 125px;
+    font-size: 11.5px;
+    padding: 5px 8px;
+  }
+
+  .recommendation-banner {
+    padding: 12px 14px;
+  }
+
+  .rec-badge-row {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+  }
+
+  .banner-action-buttons {
+    width: 100%;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .banner-action-btn,
+  .copy-summary-btn {
+    flex: 1 1 calc(50% - 6px);
+    min-height: 38px;
+    justify-content: center;
+    font-size: 11.5px;
+    padding: 6px 8px;
+  }
+
+  .rec-title {
+    font-size: 18px;
+  }
+
+  .timeline-header {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+  }
+
+  .timeline-hint {
+    display: none;
+  }
+
+  .timeline-detail-callout {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 10px;
+  }
+
+  .callout-action-group {
+    width: 100%;
+  }
+
+  .callout-action-group .sync-forecast-btn {
+    width: 100%;
+    justify-content: center;
+    min-height: 38px;
+  }
+
+  .timeline-axis-ticks .axis-tick:nth-child(2),
+  .timeline-axis-ticks .axis-tick:nth-child(4) {
+    display: none;
+  }
+
+  .saved-trips-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .saved-trips-modal-card {
+    width: 96vw;
+    max-height: 92vh;
+  }
+
+  .saved-trip-metrics {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .compare-selectors-bar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 8px;
+  }
+
+  .compare-vs-badge {
+    align-self: center;
+    margin: 4px 0;
+  }
+
+  .floating-legend-card {
+    max-width: 200px;
+    bottom: 140px;
+    right: 8px;
+  }
+
+  .modal-header,
+  .modal-body,
+  .modal-footer {
+    padding: 12px 14px;
+  }
+}
+
+/* Extra Small Devices */
+@media (max-width: 420px) {
+  .app-header {
+    height: 52px;
+    padding: 0 8px;
+  }
+
+  .brand-name {
+    font-size: 15px;
+  }
+
+  .version-pill {
+    display: none;
+  }
+
+  .preset-dropdown {
+    max-width: 90px;
+  }
+
+  .banner-action-btn,
+  .copy-summary-btn {
+    flex: 1 1 100%;
+  }
+
+  .route-metrics-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 6px;
+  }
+
+  .metric-box {
+    padding: 8px;
+  }
+
+  .metric-val {
+    font-size: 13px;
+  }
+
+  .tab-btn {
+    padding: 6px 6px;
+    font-size: 11px;
+    gap: 4px;
   }
 }
 
