@@ -1,4 +1,4 @@
-const BASE = import.meta.env.VITE_API_URL || "";
+const BASE = (typeof import.meta !== "undefined" && import.meta.env && import.meta.env.VITE_API_URL) || "";
 
 async function request(path, options = {}) {
   const controller = new AbortController();
@@ -100,6 +100,28 @@ export const getTripAnalysis = (tripId, analysisId, signal) =>
    PDF Report Download Utilities
    ========================================================================== */
 
+export function getRouteReportFilename(origin, destination) {
+  const getClean = (place) => {
+    if (!place) return "";
+    const raw = typeof place === "string" ? place : (place.label || place.name || "");
+    if (!raw || typeof raw !== "string") return "";
+    const primary = raw.split(",")[0].trim();
+    return primary
+      .replace(/[\\/*?:"<>|]/g, "")
+      .trim()
+      .replace(/[\s\-]+/g, "_")
+      .replace(/^_+|_+$/g, "");
+  };
+
+  const o = getClean(origin);
+  const d = getClean(destination);
+
+  if (o && d) {
+    return `${o}_to_${d}_Route_Report.pdf`;
+  }
+  return "SafeHaul_Route_Report.pdf";
+}
+
 export async function downloadPdfBlob(path, filename, options = {}) {
   const controller = new AbortController();
   const signal = options.signal || controller.signal;
@@ -119,11 +141,20 @@ export async function downloadPdfBlob(path, filename, options = {}) {
       throw new Error(msg);
     }
 
+    let downloadFilename = filename;
+    if (!downloadFilename) {
+      const disposition = res.headers.get("Content-Disposition");
+      if (disposition && disposition.includes("filename=")) {
+        const match = disposition.match(/filename=["']?([^"';]+)["']?/);
+        if (match && match[1]) downloadFilename = match[1];
+      }
+    }
+
     const blob = await res.blob();
     const blobUrl = window.URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = blobUrl;
-    link.download = filename || "SafeHaul_RouteIQ_Trip_Report.pdf";
+    link.download = downloadFilename || "SafeHaul_Route_Report.pdf";
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);

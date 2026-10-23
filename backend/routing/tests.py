@@ -468,7 +468,39 @@ class ApiAndIntegrationTests(SimpleTestCase):
 
     def test_pdf_report_generation(self):
         """Verify that a valid, multi-page PDF is generated from analysis snapshot."""
-        from .report_pdf import generate_trip_safety_pdf
+        from .report_pdf import (
+            build_document_title,
+            build_report_filename,
+            generate_trip_safety_pdf,
+        )
+
+        # 1. Test filename generator
+        self.assertEqual(
+            build_report_filename("Lahore, Punjab, Pakistan", "Islamabad, ICT, Pakistan"),
+            "Lahore_to_Islamabad_Route_Report.pdf",
+        )
+        self.assertEqual(
+            build_report_filename("Lahore", "Islamabad"),
+            "Lahore_to_Islamabad_Route_Report.pdf",
+        )
+        self.assertEqual(
+            build_report_filename(None, None),
+            "SafeHaul_Route_Report.pdf",
+        )
+        self.assertEqual(
+            build_report_filename("", "Islamabad"),
+            "SafeHaul_Route_Report.pdf",
+        )
+
+        # 2. Test document title generator
+        self.assertEqual(
+            build_document_title("Lahore, Punjab, Pakistan", "Islamabad, ICT, Pakistan"),
+            "Lahore to Islamabad Route Report",
+        )
+        self.assertEqual(
+            build_document_title(None, None),
+            "SafeHaul Route Report",
+        )
 
         trip_info = {
             "origin": {"label": "Chicago, IL", "lat": 41.8781, "lon": -87.6298},
@@ -515,15 +547,56 @@ class ApiAndIntegrationTests(SimpleTestCase):
                             "level_name": "Low",
                             "reasons": ["Favorable conditions"],
                         }
-                    ]
-                }
-            ]
+                    ],
+                },
+                {
+                    "id": 2,
+                    "name": "Route 2 (I-70 Scenic)",
+                    "distance_mi": 1050.0,
+                    "duration_s": 76000,
+                    "stats": {
+                        "no_travel_miles": 0.0,
+                        "severe_miles": 5.0,
+                        "high_miles": 0.0,
+                        "moderate_miles": 20.0,
+                        "low_miles": 1025.0,
+                        "unknown_miles": 0.0,
+                        "avg_risk": 0.05,
+                        "audited_miles_sum": 1050.0,
+                    },
+                    "checkpoints": [
+                        {
+                            "mile": 0.0,
+                            "eta": "2026-10-24T08:00:00Z",
+                            "wind_mph": 15.0,
+                            "rain_in_hr": 0.0,
+                            "snow_in_hr": 0.0,
+                            "temp_f": 60.0,
+                            "level": 0,
+                            "level_name": "Low",
+                            "reasons": ["Favorable conditions"],
+                        }
+                    ],
+                },
+            ],
         }
 
+        # 3. Test PDF generation with recommended route
         pdf_bytes = generate_trip_safety_pdf(trip_info, analysis_data)
         self.assertIsInstance(pdf_bytes, bytes)
         self.assertTrue(pdf_bytes.startswith(b"%PDF"))
         self.assertGreater(len(pdf_bytes), 1000)
+        self.assertIn(b"/Title (Chicago to Denver Route Report)", pdf_bytes)
+        self.assertIn(b"/Author (SafeHaul RouteIQ)", pdf_bytes)
+        self.assertNotIn(b"/Title (\\(anonymous\\))", pdf_bytes)
+
+        # 4. Test PDF generation with user-selected route 2 (when route 1 is recommended)
+        analysis_with_selected = dict(analysis_data, selected_id=2)
+        pdf_bytes_selected = generate_trip_safety_pdf(trip_info, analysis_with_selected)
+        self.assertIsInstance(pdf_bytes_selected, bytes)
+        self.assertTrue(pdf_bytes_selected.startswith(b"%PDF"))
+        self.assertIn(b"/Title (Chicago to Denver Route Report)", pdf_bytes_selected)
+
 
 
 from django.test import TestCase
@@ -578,7 +651,18 @@ class SavedTripsAndReportTests(TestCase):
         pdf_res = client.get(f"/api/trips/{trip_id}/report.pdf")
         self.assertEqual(pdf_res.status_code, 200)
         self.assertEqual(pdf_res["Content-Type"], "application/pdf")
+        self.assertEqual(pdf_res["Content-Disposition"], 'attachment; filename="Chicago_to_Denver_Route_Report.pdf"')
         self.assertTrue(pdf_res.content.startswith(b"%PDF"))
+
+        # 5b. Download On-Demand PDF Report via POST /api/report/pdf
+        od_payload = {
+            "trip": {"origin": {"label": "Lahore, Punjab, Pakistan"}, "destination": {"label": "Islamabad, ICT, Pakistan"}},
+            "analysis_data": create_payload["analysis_data"],
+        }
+        od_res = client.post("/api/report/pdf", data=json.dumps(od_payload), content_type="application/json")
+        self.assertEqual(od_res.status_code, 200)
+        self.assertEqual(od_res["Content-Disposition"], 'attachment; filename="Lahore_to_Islamabad_Route_Report.pdf"')
+        self.assertTrue(od_res.content.startswith(b"%PDF"))
 
         # 6. Delete Duplicate via DELETE /api/trips/<id>
         del_res = client.delete(f"/api/trips/{dup_id}")

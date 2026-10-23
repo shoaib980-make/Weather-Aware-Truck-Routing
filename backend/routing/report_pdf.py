@@ -4,8 +4,10 @@ Uses ReportLab Platypus to produce executive, multi-page, publication-quality PD
 with strict pagination, auditable metrics, hazard tables, and multi-page checkpoint logs.
 """
 import io
+import re
 from datetime import datetime, timezone
 
+from reportlab.graphics.shapes import Circle, Drawing, Path, Rect
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
@@ -25,11 +27,115 @@ from reportlab.platypus import (
 from .risk import LEVELS
 
 
+def clean_place_name(place):
+    """Extract a clean, concise primary place name from a dict, label, or string."""
+    if not place:
+        return ""
+    if isinstance(place, dict):
+        raw = place.get("label") or place.get("name") or place.get("city") or ""
+    else:
+        raw = str(place)
+    raw = raw.strip()
+    if not raw:
+        return ""
+    # Split on first comma (e.g. 'Lahore, Punjab, Pakistan' -> 'Lahore')
+    return raw.split(",")[0].strip()
+
+
+def sanitize_filename_token(token):
+    """Sanitize a token for cross-platform filesystem filenames."""
+    if not token:
+        return ""
+    # Remove filesystem-illegal characters (\ / : * ? " < > |)
+    clean = re.sub(r'[\\/*?:"<>|]', "", token)
+    # Convert whitespace and hyphens into underscores
+    clean = re.sub(r'[\s\-]+', "_", clean)
+    # Collapse multiple underscores and strip boundary characters
+    clean = re.sub(r'_+', "_", clean).strip("._")
+    return clean
+
+
+def build_report_filename(origin, destination):
+    """
+    Generate dynamic PDF filename based on origin and destination.
+    e.g. 'Lahore_to_Islamabad_Route_Report.pdf'
+    Falls back to 'SafeHaul_Route_Report.pdf' if either endpoint is unavailable.
+    """
+    o_name = sanitize_filename_token(clean_place_name(origin))
+    d_name = sanitize_filename_token(clean_place_name(destination))
+    if o_name and d_name:
+        return f"{o_name}_to_{d_name}_Route_Report.pdf"
+    return "SafeHaul_Route_Report.pdf"
+
+
+def build_document_title(origin, destination):
+    """
+    Generate professional PDF document title for metadata and browser tab display.
+    e.g. 'Lahore to Islamabad Route Report'
+    Falls back to 'SafeHaul Route Report' if endpoints unavailable.
+    """
+    o_name = clean_place_name(origin)
+    d_name = clean_place_name(destination)
+    if o_name and d_name:
+        return f"{o_name} to {d_name} Route Report"
+    return "SafeHaul Route Report"
+
+
+def create_header_icon():
+    """Create a crisp vector transport safety emblem (shield + commercial semi-truck) in ReportLab."""
+    d = Drawing(46, 46)
+    # Outer rounded tile container
+    d.add(Rect(0, 0, 46, 46, rx=10, ry=10, fillColor=colors.HexColor("#1e3a8a"), strokeColor=colors.HexColor("#3b82f6"), strokeWidth=1.5))
+
+    # Shield background silhouette
+    shield = Path(fillColor=colors.HexColor("#1e40af"), strokeColor=None)
+    shield.moveTo(23, 41)
+    shield.lineTo(39, 36)
+    shield.lineTo(39, 21)
+    shield.curveTo(39, 13, 31, 8, 23, 5)
+    shield.curveTo(15, 8, 7, 13, 7, 21)
+    shield.lineTo(7, 36)
+    shield.closePath()
+    d.add(shield)
+
+    # Semi-truck trailer
+    d.add(Rect(9, 19, 16, 14, rx=1.5, ry=1.5, fillColor=colors.HexColor("#ffffff"), strokeColor=None))
+
+    # Semi-truck cab
+    cab = Path(fillColor=colors.HexColor("#93c5fd"), strokeColor=None)
+    cab.moveTo(26, 19)
+    cab.lineTo(34, 19)
+    cab.lineTo(36.5, 25)
+    cab.lineTo(36.5, 33)
+    cab.lineTo(26, 33)
+    cab.closePath()
+    d.add(cab)
+
+    # Cab windshield
+    win = Path(fillColor=colors.HexColor("#1e3a8a"), strokeColor=None)
+    win.moveTo(27.5, 25)
+    win.lineTo(33.5, 25)
+    win.lineTo(32.5, 30)
+    win.lineTo(27.5, 30)
+    win.closePath()
+    d.add(win)
+
+    # Heavy-duty wheels with steel rims
+    for cx in (14, 21, 32):
+        d.add(Circle(cx, 16.5, 3.2, fillColor=colors.HexColor("#0f172a"), strokeColor=colors.HexColor("#ffffff"), strokeWidth=1))
+        d.add(Circle(cx, 16.5, 1.2, fillColor=colors.HexColor("#94a3b8"), strokeColor=None))
+
+    # Highway speed line
+    d.add(Rect(7, 10.5, 32, 2, rx=1, ry=1, fillColor=colors.HexColor("#38bdf8"), strokeColor=None))
+    return d
+
+
 class NumberedCanvas(canvas.Canvas):
     """Two-pass canvas that computes total page count and draws consistent running headers/footers."""
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.setViewerPreference("DisplayDocTitle", "true")
         self._saved_page_states = []
         self.report_date = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M UTC")
 
@@ -92,6 +198,11 @@ def _fmt_time(iso_str):
 
 def generate_trip_safety_pdf(trip_data, analysis_data):
     """Generate a comprehensive multi-page PDF document for a trip analysis snapshot."""
+    origin_raw = trip_data.get("origin") or trip_data.get("origin_label") or ""
+    dest_raw = trip_data.get("destination") or trip_data.get("dest") or trip_data.get("dest_label") or ""
+
+    doc_title = build_document_title(origin_raw, dest_raw)
+
     buf = io.BytesIO()
     doc = SimpleDocTemplate(
         buf,
@@ -100,6 +211,9 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
         rightMargin=45,
         topMargin=54,
         bottomMargin=54,
+        title=doc_title,
+        author="SafeHaul RouteIQ",
+        subject=f"Trip Safety Analysis Report: {doc_title}",
     )
 
     styles = getSampleStyleSheet()
@@ -188,45 +302,106 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
         textColor=colors.white,
     )
 
-    story = []
-
-    # 1. Title & Header Banner
-    story.append(Paragraph("SafeHaul RouteIQ", title_style))
-    story.append(Paragraph("Trip Safety Analysis & Risk Evaluation Report", subtitle_style))
-    story.append(HRFlowable(width="100%", thickness=1.5, color=c_accent, spaceBefore=0, spaceAfter=12))
+    badge_style = ParagraphStyle(
+        "HeaderBadge",
+        parent=styles["Normal"],
+        fontName="Helvetica-Bold",
+        fontSize=7.5,
+        leading=11,
+        alignment=2,
+        textColor=c_brand,
+    )
 
     # Extract core analysis values
     routes = analysis_data.get("routes", [])
     rec_id = analysis_data.get("recommended_id")
     recommended_route = next((r for r in routes if r.get("id") == rec_id), routes[0] if routes else None)
+
+    # Support selected route when multiple routes exist and user picked one
+    selected_id = (
+        analysis_data.get("selected_id")
+        or analysis_data.get("selected_route_id")
+        or trip_data.get("selected_id")
+        or trip_data.get("selected_route_id")
+    )
+    selected_route = (
+        next((r for r in routes if str(r.get("id")) == str(selected_id)), None)
+        if selected_id is not None
+        else None
+    )
+    active_route = selected_route or recommended_route
+
     all_prohibited = analysis_data.get("all_prohibited", False)
     provenance = analysis_data.get("data_provenance", {})
 
-    origin_label = trip_data.get("origin", {}).get("label") or trip_data.get("origin_label", "Origin Location")
-    dest_label = trip_data.get("destination", {}).get("label") or trip_data.get("dest_label", "Destination Location")
+    origin_label = trip_data.get("origin", {}).get("label") if isinstance(trip_data.get("origin"), dict) else (trip_data.get("origin") or trip_data.get("origin_label", "Origin Location"))
+    dest_label = trip_data.get("destination", {}).get("label") if isinstance(trip_data.get("destination"), dict) else (trip_data.get("destination") or trip_data.get("dest_label", "Destination Location"))
     departure_str = _fmt_time(trip_data.get("departure"))
     weight_lb = float(trip_data.get("weight_lb", 42000))
     gen_time_str = datetime.now(timezone.utc).strftime("%b %d, %Y %H:%M UTC")
+
+    story = []
+
+    # 1. Authentic Header Banner with Icon & Corridor Title
+    corridor_subtitle = f"{origin_label} → {dest_label}" if origin_label and dest_label else "Commercial Freight Safety & Risk Assessment"
+    hdr_table = Table(
+        [
+            [
+                create_header_icon(),
+                [
+                    Paragraph("SafeHaul RouteIQ™", title_style),
+                    Paragraph(
+                        f"Commercial Vehicle Trip Safety Analysis &bull; <font color='#2563eb'><b>{corridor_subtitle}</b></font>",
+                        subtitle_style,
+                    ),
+                ],
+                Paragraph(
+                    "<font color='#1e3a8a'><b>OFFICIAL DISPATCH REPORT</b></font><br/>"
+                    "<font color='#64748b' size='6.5'>AUDITED SAFETY EVALUATION</font>",
+                    badge_style,
+                ),
+            ]
+        ],
+        colWidths=[54, 334, 134],
+    )
+    hdr_table.setStyle(
+        TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 0),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 0),
+            ("TOPPADDING", (0, 0), (-1, -1), 0),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 4),
+        ])
+    )
+    story.append(hdr_table)
+    story.append(HRFlowable(width="100%", thickness=1.5, color=c_accent, spaceBefore=4, spaceAfter=12))
 
     # 2. Executive Summary Box
     status_label = "PROHIBITED (NO TRAVEL CONDITIONS)" if all_prohibited else "FEASIBLE DISPATCH RECOMMENDED"
     status_color = c_danger if all_prohibited else c_success
 
-    rec_name = recommended_route.get("name", "N/A") if recommended_route else "None Available"
-    rec_dist = f"{recommended_route.get('distance_mi', 0):.1f} mi" if recommended_route else "—"
-    rec_dur = _fmt_duration(recommended_route.get("duration_s", 0)) if recommended_route else "—"
-    s_rec = recommended_route.get("stats", {}) if recommended_route else {}
-    rec_elevated_mi = round(s_rec.get("severe_miles", 0) + s_rec.get("high_miles", 0) + s_rec.get("no_travel_miles", 0), 1)
-    rec_risk_mi = f"{rec_elevated_mi:.1f} mi" if recommended_route else "—"
-    max_lvl = s_rec.get("max_level", 0)
-    rec_class = LEVELS[max_lvl] if max_lvl < len(LEVELS) else "Normal"
+    active_name = active_route.get("name", "N/A") if active_route else "None Available"
+    active_dist = f"{active_route.get('distance_mi', 0):.1f} mi" if active_route else "—"
+    active_dur = _fmt_duration(active_route.get("duration_s", 0)) if active_route else "—"
+    s_active = active_route.get("stats", {}) if active_route else {}
+    active_elevated_mi = round(s_active.get("severe_miles", 0) + s_active.get("high_miles", 0) + s_active.get("no_travel_miles", 0), 1)
+    active_risk_mi = f"{active_elevated_mi:.1f} mi" if active_route else "—"
+    max_lvl = s_active.get("max_level", 0)
+    active_class = LEVELS[max_lvl] if max_lvl < len(LEVELS) else "Normal"
+
+    if selected_route and recommended_route and selected_route.get("id") != recommended_route.get("id"):
+        rec_disp_title = "Selected Route:"
+        rec_disp_val = f"<font color='{c_accent.hexval()}'><b>{active_name}</b></font> (Rec: {recommended_route.get('name', 'N/A')})"
+    else:
+        rec_disp_title = "Dispatch Recommendation:"
+        rec_disp_val = f"<font color='{status_color.hexval()}'><b>{active_name}</b></font>"
 
     exec_summary_data = [
         [
             Paragraph("<b>Origin:</b>", tbl_cell_bold),
             Paragraph(origin_label, tbl_cell),
-            Paragraph("<b>Dispatch Recommendation:</b>", tbl_cell_bold),
-            Paragraph(f"<font color='{status_color.hexval()}'><b>{rec_name}</b></font>", tbl_cell),
+            Paragraph(f"<b>{rec_disp_title}</b>", tbl_cell_bold),
+            Paragraph(rec_disp_val, tbl_cell),
         ],
         [
             Paragraph("<b>Destination:</b>", tbl_cell_bold),
@@ -238,19 +413,19 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
             Paragraph("<b>Departure Time:</b>", tbl_cell_bold),
             Paragraph(departure_str, tbl_cell),
             Paragraph("<b>Route Driving Distance:</b>", tbl_cell_bold),
-            Paragraph(rec_dist, tbl_cell),
+            Paragraph(active_dist, tbl_cell),
         ],
         [
             Paragraph("<b>Gross Load Weight:</b>", tbl_cell_bold),
             Paragraph(f"{weight_lb:,.0f} lb", tbl_cell),
             Paragraph("<b>Estimated Driving Time:</b>", tbl_cell_bold),
-            Paragraph(rec_dur, tbl_cell),
+            Paragraph(active_dur, tbl_cell),
         ],
         [
             Paragraph("<b>Report Generated:</b>", tbl_cell_bold),
             Paragraph(gen_time_str, tbl_cell),
             Paragraph("<b>Elevated Weather Risk Miles:</b>", tbl_cell_bold),
-            Paragraph(f"<b>{rec_risk_mi}</b> ({rec_class})", tbl_cell),
+            Paragraph(f"<b>{active_risk_mi}</b> ({active_class})", tbl_cell),
         ],
     ]
 
@@ -292,10 +467,15 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
         ev = r.get("evaluation", {})
         elevated_mi = round(s.get("severe_miles", 0) + s.get("high_miles", 0) + s.get("no_travel_miles", 0), 1)
         is_rec = r.get("id") == rec_id
+        is_selected = active_route and r.get("id") == active_route.get("id")
 
         badge_str = f"<b>{r.get('name')}</b>"
-        if is_rec:
+        if is_rec and is_selected:
+            badge_str += " <font color='#059669'>[RECOMMENDED &bull; SELECTED]</font>"
+        elif is_rec:
             badge_str += " <font color='#059669'>[RECOMMENDED]</font>"
+        elif is_selected:
+            badge_str += " <font color='#2563eb'>[SELECTED]</font>"
         elif s.get("no_travel_miles", 0) > 0:
             badge_str += " <font color='#dc2626'>[PROHIBITED]</font>"
 
@@ -324,11 +504,11 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
     story.append(alt_tbl)
     story.append(Spacer(1, 14))
 
-    # 5. Checkpoint Weather & Arrival Log Table (for recommended route)
+    # 5. Checkpoint Weather & Arrival Log Table (for active route)
     story.append(PageBreak())  # Clean break to ensure checkpoint log starts on Page 2
-    story.append(Paragraph(f"3. Waypoint & Weather Log: {rec_name}", h2_style))
+    story.append(Paragraph(f"3. Waypoint & Weather Log: {active_name}", h2_style))
     story.append(Paragraph(
-        f"Highway checkpoints sampled at regular intervals along {rec_name}. "
+        f"Highway checkpoints sampled at regular intervals along {active_name}. "
         "Weather values reflect Open-Meteo hourly numerical weather predictions matched to the truck's projected waypoint ETA.",
         small_style
     ))
@@ -345,7 +525,7 @@ def generate_trip_safety_pdf(trip_data, analysis_data):
     ]
 
     cp_rows = [cp_headers]
-    checkpoints = recommended_route.get("checkpoints", []) if recommended_route else []
+    checkpoints = active_route.get("checkpoints", []) if active_route else []
 
     for idx, cp in enumerate(checkpoints):
         mile_val = cp.get("mile", cp.get("distance_from_origin_mi", idx * 25))

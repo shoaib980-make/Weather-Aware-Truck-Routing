@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { analyze, saveTrip, downloadOnDemandPdf } from "./api.js";
+import { analyze, saveTrip, downloadOnDemandPdf, getRouteReportFilename } from "./api.js";
 import Header, { PRESETS } from "./components/Header.jsx";
 import HeatSlider from "./components/HeatSlider.jsx";
 import MapView from "./components/MapView.jsx";
@@ -125,9 +125,12 @@ export default function App() {
     if (!result || !lastPayload) return;
     setIsDownloadingPdf(true);
     try {
-      const today = new Date().toISOString().split("T")[0];
-      const filename = `SafeHaul_RouteIQ_Trip_Report_${today}.pdf`;
-      await downloadOnDemandPdf(lastPayload, result, filename);
+      const filename = getRouteReportFilename(lastPayload.origin, lastPayload.destination);
+      const analysisPayload = {
+        ...result,
+        selected_id: selectedId,
+      };
+      await downloadOnDemandPdf(lastPayload, analysisPayload, filename);
       setToast({ type: "success", text: "Trip Safety Report PDF generated and downloaded!" });
       setTimeout(() => setToast(null), 3500);
     } catch (err) {

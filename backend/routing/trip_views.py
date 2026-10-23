@@ -11,7 +11,7 @@ from django.views.decorators.http import require_http_methods
 
 from .analysis import analyze_trip
 from .models import Trip, TripAnalysis
-from .report_pdf import generate_trip_safety_pdf
+from .report_pdf import build_report_filename, generate_trip_safety_pdf
 from .routes import RoutingError
 from .weather import WeatherError
 
@@ -309,8 +309,7 @@ def trip_analysis_pdf_view(request, trip_id, analysis_id=None):
             return _json_error("No analysis records exist for this trip. Please run an analysis first.", status=404)
 
     pdf_bytes = generate_trip_safety_pdf(trip.to_dict(), analysis.result_data)
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    filename = f"SafeHaul_RouteIQ_Trip_{trip.id}_v{analysis.version}_{date_str}.pdf"
+    filename = build_report_filename(trip.origin_label, trip.dest_label)
 
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'
@@ -331,8 +330,9 @@ def on_demand_report_pdf_view(request):
         return _json_error(str(exc))
 
     pdf_bytes = generate_trip_safety_pdf(trip_info, analysis_data)
-    date_str = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-    filename = f"SafeHaul_RouteIQ_Trip_Report_{date_str}.pdf"
+    origin_raw = trip_info.get("origin") or trip_info.get("origin_label")
+    dest_raw = trip_info.get("destination") or trip_info.get("dest") or trip_info.get("dest_label")
+    filename = build_report_filename(origin_raw, dest_raw)
 
     resp = HttpResponse(pdf_bytes, content_type="application/pdf")
     resp["Content-Disposition"] = f'attachment; filename="{filename}"'

@@ -3,6 +3,7 @@ import {
   deleteTrip,
   downloadSavedTripPdf,
   duplicateTrip,
+  getRouteReportFilename,
   getTrip,
   getTripAnalysis,
   listTrips,
@@ -121,10 +122,10 @@ export default function SavedTripsModal({
     }
   }
 
-  async function handleDownloadPdf(tripId, analysisId) {
+  async function handleDownloadPdf(tripId, analysisId, origin, dest) {
     setActionLoadingId(tripId);
     try {
-      const filename = `SafeHaul_Trip_${tripId}_Report.pdf`;
+      const filename = getRouteReportFilename(origin, dest);
       await downloadSavedTripPdf(tripId, analysisId, filename);
     } catch (err) {
       alert(err.message || "Failed to download PDF report.");
@@ -322,7 +323,7 @@ export default function SavedTripsModal({
                       <button
                         type="button"
                         className="btn-action-secondary"
-                        onClick={() => handleDownloadPdf(t.id, la.id)}
+                        onClick={() => handleDownloadPdf(t.id, la.id, t.origin_label, t.dest_label)}
                         disabled={isActionBusy}
                         title="Download official PDF trip safety report"
                       >
@@ -396,7 +397,9 @@ export default function SavedTripsModal({
         <CompareVersionsDialog
           trip={compareTrip}
           onClose={() => setCompareTrip(null)}
-          onDownloadPdf={(analysisId) => handleDownloadPdf(compareTrip.id, analysisId)}
+          onDownloadPdf={(analysisId) =>
+            handleDownloadPdf(compareTrip.id, analysisId, compareTrip.origin_label, compareTrip.dest_label)
+          }
         />
       )}
     </div>

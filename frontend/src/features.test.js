@@ -8,6 +8,7 @@ import {
   fmtTime,
   getRiskLevelBadge,
 } from "./risk.js";
+import { getRouteReportFilename } from "./api.js";
 
 test("Risk categories include Unknown and adhere to 6 distinct levels", () => {
   assert.equal(LEVELS.length, 6);
@@ -58,10 +59,27 @@ test("Route rejection delta metrics formatting", () => {
   assert.equal(`+${severeDiffMiles} mi severe`, "+18.4 mi severe");
 });
 
-test("PDF report filename generation follows standard format", () => {
-  const today = "2026-10-23";
-  const filename = `SafeHaul_RouteIQ_Trip_Report_${today}.pdf`;
-  assert.match(filename, /^SafeHaul_RouteIQ_Trip_Report_\d{4}-\d{2}-\d{2}\.pdf$/);
+test("PDF report filename generation follows dynamic route-based format with safe fallback", () => {
+  assert.equal(
+    getRouteReportFilename("Lahore, Punjab, Pakistan", "Islamabad, ICT, Pakistan"),
+    "Lahore_to_Islamabad_Route_Report.pdf"
+  );
+  assert.equal(
+    getRouteReportFilename({ label: "Lahore" }, { label: "Islamabad" }),
+    "Lahore_to_Islamabad_Route_Report.pdf"
+  );
+  assert.equal(
+    getRouteReportFilename("Salt Lake City, UT", "Denver, CO"),
+    "Salt_Lake_City_to_Denver_Route_Report.pdf"
+  );
+  assert.equal(
+    getRouteReportFilename(null, null),
+    "SafeHaul_Route_Report.pdf"
+  );
+  assert.equal(
+    getRouteReportFilename("", "Islamabad"),
+    "SafeHaul_Route_Report.pdf"
+  );
 });
 
 test("Saved trip comparison delta calculations", () => {
