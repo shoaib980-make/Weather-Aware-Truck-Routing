@@ -2,6 +2,8 @@
 import json
 from datetime import datetime, timezone
 
+from django.core.management import call_command
+from django.db import DatabaseError, OperationalError
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404
 from django.views.decorators.csrf import csrf_exempt
@@ -16,6 +18,14 @@ from .weather import WeatherError
 
 def _json_error(msg, status=400):
     return JsonResponse({"error": msg}, status=status)
+
+
+def _ensure_tables_migrated():
+    """Ensure database schema exists in serverless /tmp environment."""
+    try:
+        call_command("migrate", interactive=False)
+    except Exception as exc:
+        print("Auto-migrate warning:", exc)
 
 
 def _parse_place(raw, name, fallback_prefix=None, body=None):
@@ -48,8 +58,19 @@ def trips_collection_view(request):
     POST /api/trips/ - Save a trip and its analysis snapshot.
     """
     if request.method == "GET":
-        trips = Trip.objects.all()
-        return JsonResponse({"trips": [t.to_dict() for t in trips]})
+        try:
+            trips = Trip.objects.all()
+            return JsonResponse({"trips": [t.to_dict() for t in trips]})
+        except OperationalError:
+            # Table doesn't exist yet in /tmp on Vercel cold boot: run migrate and retry
+            _ensure_tables_migrated()
+            try:
+                trips = Trip.objects.all()
+                return JsonResponse({"trips": [t.to_dict() for t in trips]})
+            except Exception:
+                return JsonResponse({"trips": []})
+        except Exception:
+            return JsonResponse({"trips": []})
 
     # POST: Save a new trip
     try:
@@ -69,34 +90,49 @@ def trips_collection_view(request):
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         return _json_error(str(exc) if isinstance(exc, ValueError) else "Invalid trip data.")
 
-    trip = Trip.objects.create(
-        name=name,
-        origin_label=origin["label"],
-        origin_lat=origin["lat"],
-        origin_lon=origin["lon"],
-        dest_label=dest["label"],
-        dest_lat=dest["lat"],
-        dest_lon=dest["lon"],
-        departure=depart,
-        weight_lb=weight,
-        interval_miles=interval,
-    )
-
-    if analysis_payload and isinstance(analysis_payload, dict):
-        TripAnalysis.objects.create(
-            trip=trip,
-            version=1,
+    def _create_trip():
+        return Trip.objects.create(
+            name=name,
+            origin_label=origin["label"],
+            origin_lat=origin["lat"],
+            origin_lon=origin["lon"],
+            dest_label=dest["label"],
+            dest_lat=dest["lat"],
+            dest_lon=dest["lon"],
             departure=depart,
             weight_lb=weight,
-            forecast_reference_time=analysis_payload.get("data_provenance", {}).get("model_base_time", ""),
-            provider_metadata=analysis_payload.get("data_provenance", {}),
-            status="completed",
-            recommended_id=analysis_payload.get("recommended_id"),
-            all_prohibited=analysis_payload.get("all_prohibited", False),
-            rationale=analysis_payload.get("rationale", ""),
-            trade_off={},
-            result_data=analysis_payload,
+            interval_miles=interval,
         )
+
+    try:
+        trip = _create_trip()
+    except OperationalError:
+        _ensure_tables_migrated()
+        try:
+            trip = _create_trip()
+        except DatabaseError as e:
+            return _json_error(f"Database error: {e}", status=500)
+    except DatabaseError as e:
+        return _json_error(f"Database error: {e}", status=500)
+
+    if analysis_payload and isinstance(analysis_payload, dict):
+        try:
+            TripAnalysis.objects.create(
+                trip=trip,
+                version=1,
+                departure=depart,
+                weight_lb=weight,
+                forecast_reference_time=analysis_payload.get("data_provenance", {}).get("model_base_time", ""),
+                provider_metadata=analysis_payload.get("data_provenance", {}),
+                status="completed",
+                recommended_id=analysis_payload.get("recommended_id"),
+                all_prohibited=analysis_payload.get("all_prohibited", False),
+                rationale=analysis_payload.get("rationale", ""),
+                trade_off={},
+                result_data=analysis_payload,
+            )
+        except Exception as e:
+            print("Warning saving analysis snapshot:", e)
 
     return JsonResponse(trip.to_dict(), status=201)
 

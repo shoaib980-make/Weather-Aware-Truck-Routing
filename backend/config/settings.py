@@ -21,10 +21,17 @@ MIDDLEWARE = [
 ]
 ROOT_URLCONF = "config.urls"
 WSGI_APPLICATION = "config.wsgi.application"
+# On Vercel Serverless, the root directory is read-only; /tmp is the only writable path
+if os.environ.get("VERCEL"):
+    import tempfile
+    db_path = Path(tempfile.gettempdir()) / "db.sqlite3"
+else:
+    db_path = BASE_DIR / "db.sqlite3"
+
 DATABASES = {
     "default": {
         "ENGINE": "django.db.backends.sqlite3",
-        "NAME": BASE_DIR / "db.sqlite3",
+        "NAME": db_path,
     }
 }
 USE_TZ = True
