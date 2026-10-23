@@ -466,3 +466,197 @@ class ApiAndIntegrationTests(SimpleTestCase):
         self.assertEqual(hazards[0]["level"], 2)
         self.assertEqual(hazards[0]["wind_mph"], 48.0)
 
+    def test_route_trade_off_analysis(self):
+        """Verify trade-off metrics between fastest and recommended routes."""
+        from .tradeoff import analyze_route_trade_offs
+
+        r_fast = {
+            "id": 1,
+            "name": "Route 1 (I-80)",
+            "distance_mi": 420.0,
+            "duration_s": 25800,  # 7h 10m
+            "checkpoints": [
+                {"segment_miles": 50.0, "level": 3, "wind_mph": 48.0, "rain_in_hr": 0.4},
+                {"segment_miles": 370.0, "level": 0, "wind_mph": 12.0, "rain_in_hr": 0.0},
+            ],
+            "stats": {
+                "no_travel_miles": 0.0,
+                "severe_miles": 50.0,
+                "high_miles": 0.0,
+                "moderate_miles": 0.0,
+                "low_miles": 370.0,
+                "unknown_miles": 0.0,
+                "avg_risk": 0.36,
+            }
+        }
+
+        r_safe = {
+            "id": 2,
+            "name": "Route 2 (I-70)",
+            "distance_mi": 448.0,
+            "duration_s": 28500,  # 7h 55m (+45 min)
+            "checkpoints": [
+                {"segment_miles": 448.0, "level": 0, "wind_mph": 10.0, "rain_in_hr": 0.0},
+            ],
+            "stats": {
+                "no_travel_miles": 0.0,
+                "severe_miles": 0.0,
+                "high_miles": 0.0,
+                "moderate_miles": 0.0,
+                "low_miles": 448.0,
+                "unknown_miles": 0.0,
+                "avg_risk": 0.0,
+            }
+        }
+
+        routes, summary = analyze_route_trade_offs([r_fast, r_safe], r_safe, weight_lb=45000)
+        self.assertEqual(summary["fastest_route_id"], 1)
+        self.assertEqual(summary["safest_route_id"], 2)
+        self.assertEqual(summary["recommended_route_id"], 2)
+        self.assertFalse(summary["is_same_route"])
+        self.assertEqual(summary["additional_travel_time_min"], 45)
+        self.assertEqual(summary["additional_distance_mi"], 28.0)
+        self.assertEqual(summary["risk_reduction_mi"], 50.0)
+        self.assertEqual(summary["risk_reduction_pct"], 100.0)
+        self.assertIn("avoided_hazards", summary)
+        self.assertTrue(len(summary["why_recommended"]) > 0)
+        self.assertTrue(len(summary["why_shortest_not_recommended"]) > 0)
+
+    def test_pdf_report_generation(self):
+        """Verify that a valid, multi-page PDF is generated from analysis snapshot."""
+        from .report_pdf import generate_trip_safety_pdf
+
+        trip_info = {
+            "origin": {"label": "Chicago, IL", "lat": 41.8781, "lon": -87.6298},
+            "destination": {"label": "Denver, CO", "lat": 39.7392, "lon": -104.9903},
+            "departure": "2026-10-24T08:00:00Z",
+            "weight_lb": 45000,
+        }
+        analysis_data = {
+            "recommended_id": 1,
+            "all_prohibited": False,
+            "rationale": "Recommended optimal safety route.",
+            "data_provenance": {
+                "provider": "Open-Meteo Global NWP",
+                "model_base_time": "2026-10-24T00:00:00Z",
+                "cache_status": "live_fetch",
+                "forecast_valid_start": "2026-10-24T08:00:00Z",
+                "forecast_valid_end": "2026-10-25T08:00:00Z",
+            },
+            "trade_off": {
+                "fastest_route_name": "Route 1",
+                "recommended_route_name": "Route 1",
+                "is_same_route": True,
+                "why_recommended": "Fastest and safest corridor.",
+            },
+            "routes": [
+                {
+                    "id": 1,
+                    "name": "Route 1 (I-80)",
+                    "distance_mi": 1005.0,
+                    "duration_s": 73712,
+                    "stats": {
+                        "no_travel_miles": 0.0,
+                        "severe_miles": 0.0,
+                        "high_miles": 0.0,
+                        "moderate_miles": 10.0,
+                        "low_miles": 995.0,
+                        "unknown_miles": 0.0,
+                        "avg_risk": 0.01,
+                        "audited_miles_sum": 1005.0,
+                    },
+                    "trade_off_metrics": {
+                        "elevated_risk_miles": 0.0,
+                        "risk_classification": "Low",
+                        "hazard_breakdown": {
+                            "high_wind_miles": 0.0,
+                            "heavy_rain_miles": 0.0,
+                            "snow_ice_miles": 0.0,
+                            "severe_conditions_miles": 0.0,
+                            "unknown_weather_miles": 0.0,
+                        }
+                    },
+                    "checkpoints": [
+                        {
+                            "mile": 0.0,
+                            "eta": "2026-10-24T08:00:00Z",
+                            "wind_mph": 12.0,
+                            "rain_in_hr": 0.0,
+                            "snow_in_hr": 0.0,
+                            "temp_f": 65.0,
+                            "level": 0,
+                            "level_name": "Low",
+                            "reasons": ["Favorable conditions"],
+                        }
+                    ]
+                }
+            ]
+        }
+
+        pdf_bytes = generate_trip_safety_pdf(trip_info, analysis_data)
+        self.assertIsInstance(pdf_bytes, bytes)
+        self.assertTrue(pdf_bytes.startswith(b"%PDF"))
+        self.assertGreater(len(pdf_bytes), 1000)
+
+
+from django.test import TestCase
+
+
+class SavedTripsAndReportTests(TestCase):
+    def test_saved_trips_crud_and_endpoints(self):
+        """Verify saved trip persistence, duplication, and PDF endpoints."""
+        import json
+        from django.test import Client
+        from .models import Trip, TripAnalysis
+
+        client = Client()
+
+        # 1. Save Trip via POST /api/trips
+        create_payload = {
+            "name": "Midwest Express Run",
+            "origin": {"label": "Chicago, IL", "lat": 41.8781, "lon": -87.6298},
+            "destination": {"label": "Denver, CO", "lat": 39.7392, "lon": -104.9903},
+            "departure": "2026-10-24T08:00:00Z",
+            "weight_lb": 45000,
+            "interval_miles": "25",
+            "analysis_data": {
+                "recommended_id": 1,
+                "all_prohibited": False,
+                "rationale": "Clear corridor",
+                "routes": [{"id": 1, "name": "Route 1", "distance_mi": 1000, "duration_s": 70000, "stats": {}}],
+            }
+        }
+        res = client.post("/api/trips", data=json.dumps(create_payload), content_type="application/json")
+        self.assertEqual(res.status_code, 201)
+        trip_data = res.json()
+        trip_id = trip_data["id"]
+
+        # 2. List Trips via GET /api/trips
+        list_res = client.get("/api/trips")
+        self.assertEqual(list_res.status_code, 200)
+        self.assertTrue(any(t["id"] == trip_id for t in list_res.json()["trips"]))
+
+        # 3. Retrieve Trip Detail via GET /api/trips/<id>
+        detail_res = client.get(f"/api/trips/{trip_id}")
+        self.assertEqual(detail_res.status_code, 200)
+        self.assertEqual(len(detail_res.json()["analyses"]), 1)
+
+        # 4. Duplicate Trip via POST /api/trips/<id>/duplicate
+        dup_res = client.post(f"/api/trips/{trip_id}/duplicate", data=json.dumps({"name": "Duplicate Run"}), content_type="application/json")
+        self.assertEqual(dup_res.status_code, 201)
+        dup_id = dup_res.json()["id"]
+        self.assertNotEqual(trip_id, dup_id)
+
+        # 5. Download PDF Report via GET /api/trips/<id>/report.pdf
+        pdf_res = client.get(f"/api/trips/{trip_id}/report.pdf")
+        self.assertEqual(pdf_res.status_code, 200)
+        self.assertEqual(pdf_res["Content-Type"], "application/pdf")
+        self.assertTrue(pdf_res.content.startswith(b"%PDF"))
+
+        # 6. Delete Duplicate via DELETE /api/trips/<id>
+        del_res = client.delete(f"/api/trips/{dup_id}")
+        self.assertEqual(del_res.status_code, 200)
+        self.assertFalse(Trip.objects.filter(pk=dup_id).exists())
+
+
+

@@ -1,10 +1,11 @@
 import React, { useEffect, useState } from "react";
-import { analyze } from "./api.js";
+import { analyze, saveTrip, downloadOnDemandPdf } from "./api.js";
 import Header, { PRESETS } from "./components/Header.jsx";
 import HeatSlider from "./components/HeatSlider.jsx";
 import MapView from "./components/MapView.jsx";
 import RouteList from "./components/RouteList.jsx";
 import SafetyModal from "./components/SafetyModal.jsx";
+import SavedTripsModal from "./components/SavedTripsModal.jsx";
 import TripForm from "./components/TripForm.jsx";
 import { Icon } from "./components/Icons.jsx";
 
@@ -16,6 +17,10 @@ export default function App() {
   const [hour, setHour] = useState(0);
   const [showHeat, setShowHeat] = useState(true);
   const [safetyOpen, setSafetyOpen] = useState(false);
+  const [savedTripsOpen, setSavedTripsOpen] = useState(false);
+  const [isSavingTrip, setIsSavingTrip] = useState(false);
+  const [isDownloadingPdf, setIsDownloadingPdf] = useState(false);
+  const [toast, setToast] = useState(null);
   const [departureTime, setDepartureTime] = useState("");
   const [activeCheckpoint, setActiveCheckpoint] = useState(null);
   const [formInitialValues, setFormInitialValues] = useState(null);
@@ -26,7 +31,6 @@ export default function App() {
 
   const [lastPayload, setLastPayload] = useState(null);
   const [refreshLoading, setRefreshLoading] = useState(false);
-  const [selectedRouteOverride, setSelectedRouteOverride] = useState(null);
 
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
@@ -84,6 +88,77 @@ export default function App() {
     }
   }
 
+  async function handleSaveTrip() {
+    if (!result || !lastPayload) return;
+    setIsSavingTrip(true);
+    try {
+      const originCity = lastPayload.origin?.label?.split(",")[0]?.trim() || "Origin";
+      const destCity = lastPayload.destination?.label?.split(",")[0]?.trim() || "Destination";
+      const tripName = `${originCity} → ${destCity}`;
+      
+      const payloadToSave = {
+        name: tripName,
+        origin_label: lastPayload.origin?.label || "Origin",
+        origin_lat: lastPayload.origin?.lat,
+        origin_lon: lastPayload.origin?.lon,
+        destination_label: lastPayload.destination?.label || "Destination",
+        destination_lat: lastPayload.destination?.lat,
+        destination_lon: lastPayload.destination?.lon,
+        departure: lastPayload.departure,
+        weight_lb: lastPayload.weight_lb || 40000,
+        interval_miles: lastPayload.interval_miles || 25,
+        analysis_data: result,
+      };
+
+      const saved = await saveTrip(payloadToSave);
+      setToast({ type: "success", text: `Trip "${saved.name}" (#${saved.id}) preserved to database!` });
+      setTimeout(() => setToast(null), 4000);
+    } catch (err) {
+      setToast({ type: "error", text: err.message || "Failed to save trip." });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setIsSavingTrip(false);
+    }
+  }
+
+  async function handleDownloadPdf() {
+    if (!result || !lastPayload) return;
+    setIsDownloadingPdf(true);
+    try {
+      const today = new Date().toISOString().split("T")[0];
+      const filename = `SafeHaul_RouteIQ_Trip_Report_${today}.pdf`;
+      await downloadOnDemandPdf(lastPayload, result, filename);
+      setToast({ type: "success", text: "Trip Safety Report PDF generated and downloaded!" });
+      setTimeout(() => setToast(null), 3500);
+    } catch (err) {
+      setToast({ type: "error", text: err.message || "Failed to generate Trip Safety Report PDF." });
+      setTimeout(() => setToast(null), 5000);
+    } finally {
+      setIsDownloadingPdf(false);
+    }
+  }
+
+  function handleLoadSavedTrip(trip, analysisData) {
+    setResult(analysisData);
+    setSelectedId(analysisData.recommended_id);
+    setDepartureTime(trip.departure);
+    setLastPayload({
+      origin: { label: trip.origin_label, lat: trip.origin_lat, lon: trip.origin_lon },
+      destination: { label: trip.destination_label, lat: trip.destination_lat, lon: trip.destination_lon },
+      departure: trip.departure,
+      weight_lb: trip.weight_lb,
+      interval_miles: trip.interval_miles,
+    });
+    setFormInitialValues({
+      origin: { label: trip.origin_label, lat: trip.origin_lat, lon: trip.origin_lon },
+      destination: { label: trip.destination_label, lat: trip.destination_lat, lon: trip.destination_lon },
+      weight: trip.weight_lb,
+    });
+    setMobileTab("routes");
+    setToast({ type: "success", text: `Loaded saved trip "${trip.name}" into workspace.` });
+    setTimeout(() => setToast(null), 3500);
+  }
+
   function handleSelectCheckpoint(cp) {
     setActiveCheckpoint(cp);
     if (cp && cp.eta && result?.forecast_start) {
@@ -104,9 +179,21 @@ export default function App() {
       <Header
         onSelectPreset={handleSelectPreset}
         onOpenSafety={() => setSafetyOpen(true)}
+        onOpenSavedTrips={() => setSavedTripsOpen(true)}
         theme={theme}
         onToggleTheme={handleToggleTheme}
       />
+
+      {/* Floating Toast Notification */}
+      {toast && (
+        <div className={`app-toast toast-${toast.type}`} role="status">
+          <Icon name={toast.type === "success" ? "shield-check" : "alert-triangle"} size={16} />
+          <span>{toast.text}</span>
+          <button type="button" className="toast-close" onClick={() => setToast(null)}>
+            <Icon name="x" size={14} />
+          </button>
+        </div>
+      )}
 
       <div className="app-workspace">
         {/* Left Sidebar: Trip Setup & Route Analysis */}
@@ -161,6 +248,10 @@ export default function App() {
                 refreshLoading={refreshLoading}
                 forecastHour={hour}
                 onSyncForecastHour={setHour}
+                onSaveTrip={handleSaveTrip}
+                isSavingTrip={isSavingTrip}
+                onDownloadPdf={handleDownloadPdf}
+                isDownloadingPdf={isDownloadingPdf}
               />
             ) : (
               !loading && (
@@ -252,6 +343,13 @@ export default function App() {
 
       {/* Safety Guidelines Dialog */}
       <SafetyModal isOpen={safetyOpen} onClose={() => setSafetyOpen(false)} />
+
+      {/* Saved Trips & Reanalysis Dialog */}
+      <SavedTripsModal
+        isOpen={savedTripsOpen}
+        onClose={() => setSavedTripsOpen(false)}
+        onLoadTripAnalysis={handleLoadSavedTrip}
+      />
     </div>
   );
 }

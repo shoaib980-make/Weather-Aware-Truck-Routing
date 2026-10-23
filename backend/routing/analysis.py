@@ -81,12 +81,17 @@ def analyze_trip(origin, destination, depart, weight_lb, interval="auto", force_
         ),
     }
 
+    from .tradeoff import analyze_route_trade_offs
+
+    routes, trade_off_summary = analyze_route_trade_offs(routes, best, weight_lb=weight_lb)
+
     return {
         "forecast_start": depart_hour.isoformat(),
         "recommended_id": recommended_id,
         "all_prohibited": all_prohibited,
         "route_notice": route_notice,
         "rationale": rationale,
+        "trade_off": trade_off_summary,
         "data_provenance": data_provenance,
         "routes": [_serialize(i + 1, r, evaluations.get(i + 1)) for i, r in enumerate(routes)],
     }
@@ -101,6 +106,8 @@ def _serialize(rid, r, evaluation=None):
         "interval_mi": r["interval_mi"],
         "stats": r["stats"],
         "evaluation": evaluation,
+        "trade_off_metrics": r.get("trade_off_metrics", {}),
+        "hazard_breakdown": r.get("trade_off_metrics", {}).get("hazard_breakdown", {}),
         "influential_checkpoints": r.get("influential_checkpoints", []),
         "geometry": [[round(a, 5), round(b, 5)] for a, b in thin(r["coords"], MAX_GEOMETRY_POINTS)],
         "checkpoints": [

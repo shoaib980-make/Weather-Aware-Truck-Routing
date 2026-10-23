@@ -33,7 +33,7 @@ export const PRESETS = [
   },
 ];
 
-export default function Header({ onSelectPreset, onOpenSafety, theme, onToggleTheme }) {
+export default function Header({ onSelectPreset, onOpenSafety, onOpenSavedTrips, theme, onToggleTheme }) {
   const [healthy, setHealthy] = useState(null);
 
   useEffect(() => {
@@ -95,6 +95,18 @@ export default function Header({ onSelectPreset, onOpenSafety, theme, onToggleTh
             ))}
           </select>
         </div>
+
+        {/* Saved Trips modal trigger */}
+        <button
+          type="button"
+          className="header-btn"
+          onClick={onOpenSavedTrips}
+          title="Open Saved Trips and Analysis History"
+          aria-label="View Saved Trips"
+        >
+          <Icon name="bookmark" size={16} />
+          <span className="btn-label">Saved Trips</span>
+        </button>
 
         {/* Safety Guide modal trigger */}
         <button

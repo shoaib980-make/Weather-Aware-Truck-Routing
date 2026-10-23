@@ -42,3 +42,114 @@ export const analyze = (body, signal) =>
     signal,
     timeout: 45000,
   });
+
+/* ==========================================================================
+   Saved Trips & Reanalysis API
+   ========================================================================== */
+
+export const listTrips = (signal) =>
+  request("/api/trips", { signal, timeout: 10000 });
+
+export const saveTrip = (body, signal) =>
+  request("/api/trips", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+    timeout: 15000,
+  });
+
+export const getTrip = (id, signal) =>
+  request(`/api/trips/${id}`, { signal, timeout: 10000 });
+
+export const updateTrip = (id, body, signal) =>
+  request(`/api/trips/${id}`, {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+export const deleteTrip = (id, signal) =>
+  request(`/api/trips/${id}`, {
+    method: "DELETE",
+    signal,
+  });
+
+export const duplicateTrip = (id, body = {}, signal) =>
+  request(`/api/trips/${id}/duplicate`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+  });
+
+export const reanalyzeTrip = (id, body = {}, signal) =>
+  request(`/api/trips/${id}/reanalyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+    signal,
+    timeout: 50000,
+  });
+
+export const getTripAnalysis = (tripId, analysisId, signal) =>
+  request(`/api/trips/${tripId}/analyses/${analysisId}`, { signal });
+
+/* ==========================================================================
+   PDF Report Download Utilities
+   ========================================================================== */
+
+export async function downloadPdfBlob(path, filename, options = {}) {
+  const controller = new AbortController();
+  const signal = options.signal || controller.signal;
+  const timeoutId = setTimeout(() => controller.abort(), options.timeout || 45000);
+
+  try {
+    const res = await fetch(BASE + path, { ...options, signal });
+    clearTimeout(timeoutId);
+
+    if (!res.ok) {
+      const text = await res.text().catch(() => "");
+      let msg = `PDF generation failed (HTTP ${res.status})`;
+      try {
+        const data = JSON.parse(text);
+        if (data.error) msg = data.error;
+      } catch (_) {}
+      throw new Error(msg);
+    }
+
+    const blob = await res.blob();
+    const blobUrl = window.URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = blobUrl;
+    link.download = filename || "SafeHaul_RouteIQ_Trip_Report.pdf";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => window.URL.revokeObjectURL(blobUrl), 1000);
+    return true;
+  } catch (err) {
+    clearTimeout(timeoutId);
+    if (err.name === "AbortError" && !options.signal?.aborted) {
+      throw new Error("PDF report generation timed out. Please retry.");
+    }
+    throw err;
+  }
+}
+
+export const downloadSavedTripPdf = (tripId, analysisId, filename) => {
+  const url = analysisId
+    ? `/api/trips/${tripId}/analyses/${analysisId}/report.pdf`
+    : `/api/trips/${tripId}/report.pdf`;
+  return downloadPdfBlob(url, filename);
+};
+
+export const downloadOnDemandPdf = (tripInfo, analysisData, filename) => {
+  return downloadPdfBlob("/api/report/pdf", filename, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ trip: tripInfo, analysis_data: analysisData }),
+  });
+};
+
