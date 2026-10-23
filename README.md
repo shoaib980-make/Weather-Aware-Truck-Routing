@@ -30,6 +30,8 @@ No API keys needed: routing = **OSRM**, weather = **Open-Meteo**, geocoding = **
 cd backend
 pip install -r requirements.txt
 python manage.py test          # Run unit test suite (21 tests)
+python test_integration.py     # End-to-end integration & validation test
+python verify_branding.py      # Title and favicon endpoint verification
 python manage.py runserver     # Starts API on http://127.0.0.1:8000
 ```
 
@@ -81,6 +83,7 @@ docker run -p 8000:8000 truck-routing
 ```
 Weather-Aware-Truck-Routing/
 ├── Dockerfile                  # Multi-stage production container (Node + Python Gunicorn)
+├── .env.example                # Configuration template with placeholders
 ├── README.md                   # System documentation
 ├── backend/
 │   ├── config/                 # Django settings, WSGI, URLs
@@ -90,17 +93,23 @@ Weather-Aware-Truck-Routing/
 │   │   ├── recommend.py        # Lexicographic ranking criteria & rationale generator
 │   │   ├── risk.py             # Weather risk classification table & load weight physics
 │   │   ├── routes.py           # OSRM integration, waypoint offset detours, checkpoint builder
-│   │   ├── tests.py            # Unit test suite for risk, recommendation, and checkpoint spacing
+│   │   ├── tests.py            # Unit test suite for risk, recommendation, and checkpoint spacing (21 tests)
 │   │   ├── views.py            # API endpoints: /api/analyze, /api/geocode, /api/health
 │   │   └── weather.py          # Parallel batched Open-Meteo hourly weather loader
+│   ├── test_integration.py     # Live API integration & server-side validation smoke test
+│   ├── verify_branding.py      # Tab title, favicon endpoints, and WhiteNoise verification
 │   └── frontend_dist/          # Production assets served by Django WhiteNoise
 └── frontend/
     ├── package.json
     ├── vite.config.js          # Vite config with /api proxy to Django
+    ├── public/
+    │   ├── favicon.svg         # High-resolution vector truck + safety shield favicon
+    │   └── favicon.ico         # Multi-resolution binary ICO icon fallback
     ├── src/
     │   ├── App.jsx             # Top-level workspace shell, state, responsive layout
     │   ├── api.js              # Robust API layer with health check, timeout & abort signals
     │   ├── risk.js             # Semantic color scales, formatting, and ETA calculation
+    │   ├── risk.test.js        # Frontend unit tests for risk math and formatters (6 tests)
     │   ├── styles.css          # Design system: tokens, light/dark themes, responsive layouts
     │   └── components/
     │       ├── Header.jsx       # Branding, corridor presets, theme switch, service health
@@ -124,7 +133,7 @@ Weather-Aware-Truck-Routing/
 {
   "origin": { "label": "Chicago, Illinois", "lat": 41.8781, "lon": -87.6298 },
   "destination": { "label": "Denver, Colorado", "lat": 39.7392, "lon": -104.9903 },
-  "departure": "2026-10-22T14:00:00Z",
+  "departure": "2026-10-24T08:00:00Z",
   "weight_lb": 42000,
   "interval_miles": "auto"
 }
@@ -132,12 +141,14 @@ Weather-Aware-Truck-Routing/
 
 **Response Payload:**
 - `forecast_start`: UTC ISO timestamp of departure rounded to hour.
-- `recommended_id`: Integer ID of the safest route.
-- `rationale`: Explanation of recommendation (e.g., "Equal weather risk to the alternatives; this route is 146 min faster.").
+- `recommended_id`: Integer ID of the safest route (or `null` if all routes are prohibited).
+- `all_prohibited`: Boolean flag (`true` when all candidate routes contain No Travel miles).
+- `route_notice`: String notice if fewer than 3 distinct route options exist for the corridor.
+- `rationale`: Explanation of recommendation (e.g., "Lowest average risk: 0 vs 0.04 on the next best route.").
 - `routes`: Array of route alternatives with `id`, `name`, `distance_mi`, `duration_s`, `interval_mi`, `stats`, `geometry`, and `checkpoints`.
 
 ### `GET /api/geocode?q={query}`
-Returns array of candidate locations matching query with `label`, `lat`, and `lon`.
+Returns array of candidate locations matching query with `label`, `lat`, and `lon` (Nominatim with Open-Meteo fallback).
 
 ### `GET /api/health`
 Returns `{"status": "ok"}` for container health probes and uptime monitoring.
@@ -148,5 +159,7 @@ Returns `{"status": "ok"}` for container health probes and uptime monitoring.
 
 - Risk bands follow $[lower, upper)$; rain $> 1.00$ in/hr and snow $> 3.0$ in/hr are classified as No Travel (so exactly $1.00$ / $3.0$ is Severe).
 - Routes with any **No Travel** miles are ranked strictly below routes without No Travel miles.
+- **Hard Safety Constraint**: If all candidate routes traverse active No Travel conditions, travel is prohibited on all routes and no route is labeled safe.
+- **Incomplete / Missing Forecasts**: Missing weather observations are classified as `UNKNOWN` rather than assumed safe; any route containing unknown segments reports `unknown_miles` in its summary and rationale.
 - Open-Meteo forecasts provide hourly sustained 10 m wind speeds and precipitation rates (nearest hour match without interpolation).
 - Distance-based ETAs assume steady travel based on `TRUCK_TIME_FACTOR` without traffic congestion or mandated Hours of Service (HOS) driver rest breaks.
