@@ -24,6 +24,10 @@ export default function App() {
     return localStorage.getItem("safehaul-theme") || "light";
   });
 
+  const [lastPayload, setLastPayload] = useState(null);
+  const [refreshLoading, setRefreshLoading] = useState(false);
+  const [selectedRouteOverride, setSelectedRouteOverride] = useState(null);
+
   useEffect(() => {
     document.documentElement.setAttribute("data-theme", theme);
     localStorage.setItem("safehaul-theme", theme);
@@ -47,6 +51,7 @@ export default function App() {
     setError("");
     setDepartureTime(payload.departure);
     setActiveCheckpoint(null);
+    setLastPayload(payload);
 
     try {
       const data = await analyze(payload);
@@ -58,6 +63,37 @@ export default function App() {
       setError(e.message || "An unexpected error occurred during corridor analysis.");
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function handleRefreshForecast() {
+    if (!lastPayload) return;
+    setRefreshLoading(true);
+    setError("");
+    try {
+      const data = await analyze({ ...lastPayload, force_refresh: true });
+      setResult(data);
+      // Keep currently selected route if still valid
+      if (data.routes && !data.routes.some((r) => r.id === selectedId)) {
+        setSelectedId(data.recommended_id);
+      }
+    } catch (e) {
+      setError(e.message || "Failed to refresh weather forecast data.");
+    } finally {
+      setRefreshLoading(false);
+    }
+  }
+
+  function handleSelectCheckpoint(cp) {
+    setActiveCheckpoint(cp);
+    if (cp && cp.eta && result?.forecast_start) {
+      const baseDate = new Date(result.forecast_start);
+      const etaDate = new Date(cp.eta);
+      if (!isNaN(baseDate.getTime()) && !isNaN(etaDate.getTime())) {
+        const diffMs = etaDate.getTime() - baseDate.getTime();
+        const hourOffset = Math.min(48, Math.max(0, Math.round(diffMs / (3600 * 1000))));
+        setHour(hourOffset);
+      }
     }
   }
 
@@ -119,10 +155,12 @@ export default function App() {
                   setSelectedId(id);
                   setActiveCheckpoint(null);
                 }}
-                onSelectCheckpoint={(cp) => {
-                  setActiveCheckpoint(cp);
-                }}
+                onSelectCheckpoint={handleSelectCheckpoint}
                 activeCheckpoint={activeCheckpoint}
+                onRefreshForecast={handleRefreshForecast}
+                refreshLoading={refreshLoading}
+                forecastHour={hour}
+                onSyncForecastHour={setHour}
               />
             ) : (
               !loading && (
@@ -166,7 +204,7 @@ export default function App() {
             showHeat={showHeat}
             theme={theme}
             activeCheckpoint={activeCheckpoint}
-            onSelectCheckpoint={setActiveCheckpoint}
+            onSelectCheckpoint={handleSelectCheckpoint}
           />
 
           {/* Timeline HeatSlider Overlay */}

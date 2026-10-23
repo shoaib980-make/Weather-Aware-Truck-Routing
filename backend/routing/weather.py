@@ -23,6 +23,15 @@ def grid_key(lat, lon):
 class WeatherData:
     def __init__(self):
         self.series = {}
+        self.metadata = {
+            "provider": "Open-Meteo Global Numerical Weather Prediction (Seamless)",
+            "retrieved_at": datetime.now(timezone.utc).isoformat(),
+            "model_base_time": None,
+            "cache_status": "fresh",
+            "force_refresh": False,
+            "horizon_days": FORECAST_DAYS_MAX,
+            "warnings": [],
+        }
 
     def at(self, lat, lon, when):
         k = grid_key(lat, lon)
@@ -67,12 +76,13 @@ def _parse(item):
     }
 
 
-def _fetch_chunk(keys, start, end):
+def _fetch_chunk(keys, start, end, force_refresh=False):
     h = hashlib.sha256(";".join(f"{a},{b}" for a, b in keys).encode()).hexdigest()[:24]
     ck = f"wx:{start}:{end}:{h}"
-    cached = cache.get(ck)
-    if cached:
-        return cached
+    if not force_refresh:
+        cached = cache.get(ck)
+        if cached:
+            return cached, "cache_hit"
     params = {
         "latitude": ",".join(str(k[0]) for k in keys),
         "longitude": ",".join(str(k[1]) for k in keys),
@@ -95,10 +105,10 @@ def _fetch_chunk(keys, start, end):
     items = data if isinstance(data, list) else [data]
     result = {k: _parse(item) for k, item in zip(keys, items)}
     cache.set(ck, result, CACHE_SECONDS)
-    return result
+    return result, "live_fetch"
 
 
-def load_weather(points, window_start, window_end):
+def load_weather(points, window_start, window_end, force_refresh=False):
     """Fetch weather for all (lat, lon) points covering [window_start, window_end]."""
     today = datetime.now(timezone.utc).date()
     last_day = today + timedelta(days=FORECAST_DAYS_MAX)
@@ -113,7 +123,24 @@ def load_weather(points, window_start, window_end):
     keys = sorted({grid_key(*p) for p in points})
     chunks = [keys[i:i + CHUNK] for i in range(0, len(keys), CHUNK)]
     data = WeatherData()
+    data.metadata["retrieved_at"] = datetime.now(timezone.utc).isoformat()
+    data.metadata["force_refresh"] = force_refresh
+
+    statuses = []
     with ThreadPoolExecutor(max_workers=4) as pool:
-        for part in pool.map(lambda c: _fetch_chunk(c, start, end), chunks):
+        for part, status in pool.map(lambda c: _fetch_chunk(c, start, end, force_refresh=force_refresh), chunks):
             data.series.update(part)
+            statuses.append(status)
+
+    data.metadata["cache_status"] = "live_fetch" if "live_fetch" in statuses else "cache_hit"
+    for s in data.series.values():
+        if s.get("base"):
+            data.metadata["model_base_time"] = s["base"].isoformat()
+            break
+
+    if (end - today).days > 7:
+        data.metadata["warnings"].append(
+            "Forecast extends beyond 7 days; numerical forecast uncertainty increases with projection distance."
+        )
+
     return data

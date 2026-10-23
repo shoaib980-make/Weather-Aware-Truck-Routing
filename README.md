@@ -90,12 +90,12 @@ Weather-Aware-Truck-Routing/
 │   ├── routing/
 │   │   ├── analysis.py         # Pipeline orchestrator: routes -> checkpoints -> weather -> risk -> recommendation
 │   │   ├── geometry.py         # Route geometry thinning & polyline algorithms
-│   │   ├── recommend.py        # Lexicographic ranking criteria & rationale generator
+│   │   ├── recommend.py        # Lexicographic ranking criteria, influential hazards & rationale generator
 │   │   ├── risk.py             # Weather risk classification table & load weight physics
 │   │   ├── routes.py           # OSRM integration, waypoint offset detours, checkpoint builder
-│   │   ├── tests.py            # Unit test suite for risk, recommendation, and checkpoint spacing (21 tests)
+│   │   ├── tests.py            # Unit test suite for risk, recommendation, and checkpoint spacing (25 tests)
 │   │   ├── views.py            # API endpoints: /api/analyze, /api/geocode, /api/health
-│   │   └── weather.py          # Parallel batched Open-Meteo hourly weather loader
+│   │   └── weather.py          # Parallel batched Open-Meteo hourly weather loader with cache bypass
 │   ├── test_integration.py     # Live API integration & server-side validation smoke test
 │   ├── verify_branding.py      # Tab title, favicon endpoints, and WhiteNoise verification
 │   └── frontend_dist/          # Production assets served by Django WhiteNoise
@@ -109,7 +109,8 @@ Weather-Aware-Truck-Routing/
     │   ├── App.jsx             # Top-level workspace shell, state, responsive layout
     │   ├── api.js              # Robust API layer with health check, timeout & abort signals
     │   ├── risk.js             # Semantic color scales, formatting, and ETA calculation
-    │   ├── risk.test.js        # Frontend unit tests for risk math and formatters (6 tests)
+    │   ├── risk.test.js        # Frontend unit tests for risk math and formatters
+    │   ├── features.test.js    # Unit tests for timeline, auditable miles, and provenance
     │   ├── styles.css          # Design system: tokens, light/dark themes, responsive layouts
     │   └── components/
     │       ├── Header.jsx       # Branding, corridor presets, theme switch, service health
@@ -119,9 +120,30 @@ Weather-Aware-Truck-Routing/
     │       ├── HeatSlider.jsx   # 0–48h scrubbing timeline, playback, risk ribbon preview
     │       ├── PlaceInput.jsx   # Accessible combobox geocoder with keyboard navigation
     │       ├── RouteList.jsx    # Recommendation banner, route cards, matrix, checkpoint log
+    │       ├── RouteRiskTimeline.jsx # Distance-proportional horizontal risk timeline with ticks
+    │       ├── DataProvenanceCard.jsx # Forecast freshness, NWP model provenance, cache bypass
     │       ├── SafetyModal.jsx  # Federal safety rules and truck rollover matrix dialog
     │       └── TripForm.jsx     # Trip configuration form with swap button & weight physics
 ```
+
+---
+
+## Three-Feature Architecture & Specification
+
+### 1. Explainable Route Recommendation & Auditable Risk Mileage
+- **Auditable Risk Mileage without Double-Counting**: Every route computes non-overlapping miles across all 6 risk levels (`Severe`, `High`, `Moderate`, `Low`, `No Travel`, `Unknown`). Verified mathematically with `audited_miles_sum` and `is_audited_consistent` (abs difference $< 0.2$ mi).
+- **Unknown Weather is Never Treated as Low Risk**: Missing, partial, or out-of-bounds weather observations are explicitly classified as `Unknown` risk (tinted slate gray), with warnings surfaced in dispatch rationales.
+- **Transparent Multi-Route Evaluation & Rejection Rationale**: Non-recommended routes explicitly state *why* they were disqualified or deprioritized (e.g. `Disqualified: Contains 14.2 mi of prohibited No Travel conditions` or `+45 min travel time vs recommended route with equivalent weather risk`).
+- **Influential Hazard Checkpoints**: Checkpoints triggering high wind, excessive precipitation, or load-adjusted rollover thresholds are surfaced as interactive hazard chips.
+
+### 2. Weather Forecast Confidence & Data Freshness
+- **Provenance Tracking**: Captures Open-Meteo NWP provider metadata, live retrieval timestamp (`retrieved_at`), numerical model run base time (`model_base_time`), forecast valid range (`forecast_valid_start` to `forecast_valid_end`), and forecast horizon limits (15-day ceiling, warning on $> 7$ days).
+- **Cache-Bypass Real Refresh**: Users can trigger an on-demand forecast recalculation via **Force Refresh** (`force_refresh: true`), clearing upstream cache layers and updating all map markers, heat corridors, and timelines.
+
+### 3. Clickable Distance-Proportional Route Risk Timeline
+- **Proportional Segment Widths**: Each route segment is positioned strictly according to its true mileage (`segment_miles / total_distance_mi * 100%`), with mile and arrival time ticks (0 mi, 25%, 50%, 75%, 100%).
+- **Bidirectional System Synchronization**: Selecting a timeline segment immediately centers and zooms the Leaflet map to that checkpoint, opens its weather and hazard popup, synchronizes the 0–48h forecast slider, and updates the heat corridor layer.
+- **Accessibility**: Full keyboard navigation, ARIA option/listbox roles, screen reader announcements, and high-contrast colorways.
 
 ---
 
@@ -135,7 +157,8 @@ Weather-Aware-Truck-Routing/
   "destination": { "label": "Denver, Colorado", "lat": 39.7392, "lon": -104.9903 },
   "departure": "2026-10-24T08:00:00Z",
   "weight_lb": 42000,
-  "interval_miles": "auto"
+  "interval_miles": "auto",
+  "force_refresh": false
 }
 ```
 

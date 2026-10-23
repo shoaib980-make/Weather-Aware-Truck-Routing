@@ -104,10 +104,11 @@ def analyze_view(request):
         interval = body.get("interval_miles", "auto")
         if interval not in ("auto", 10, 25, 50, "10", "25", "50"):
             raise ValueError("Checkpoint interval must be 'auto', 10, 25, or 50 miles.")
+        force_refresh = bool(body.get("force_refresh", False))
     except (KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
         return _error(str(exc) if isinstance(exc, ValueError) else "Missing or invalid fields.")
 
     try:
-        return JsonResponse(analyze_trip(origin, destination, depart, weight, interval))
+        return JsonResponse(analyze_trip(origin, destination, depart, weight, interval, force_refresh=force_refresh))
     except (RoutingError, WeatherError) as exc:
         return _error(str(exc), 502)

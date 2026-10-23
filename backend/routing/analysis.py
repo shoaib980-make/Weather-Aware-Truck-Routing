@@ -2,7 +2,7 @@
 from datetime import timedelta
 
 from .geometry import thin
-from .recommend import recommend, route_stats
+from .recommend import extract_influential_checkpoints, recommend, route_stats
 from .risk import LEVELS, classify
 from .routes import RoutingError, build_checkpoints, fetch_routes, pick_interval
 from .weather import load_weather
@@ -11,7 +11,7 @@ FORECAST_HOURS = 48
 MAX_GEOMETRY_POINTS = 1500
 
 
-def analyze_trip(origin, destination, depart, weight_lb, interval="auto"):
+def analyze_trip(origin, destination, depart, weight_lb, interval="auto", force_refresh=False):
     routes = fetch_routes(origin, destination)
     if not routes:
         raise RoutingError("No driving routes could be found between the specified locations.")
@@ -23,7 +23,7 @@ def analyze_trip(origin, destination, depart, weight_lb, interval="auto"):
     longest_h = max(r["duration_s"] for r in routes) / 3600
     hours = max(FORECAST_HOURS, longest_h) + 2
     points = [(cp["lat"], cp["lon"]) for r in routes for cp in r["checkpoints"]]
-    weather = load_weather(points, depart - timedelta(hours=1), depart + timedelta(hours=hours))
+    weather = load_weather(points, depart - timedelta(hours=1), depart + timedelta(hours=hours), force_refresh=force_refresh)
 
     depart_hour = depart.replace(minute=0, second=0, microsecond=0)
     for r in routes:
@@ -52,8 +52,9 @@ def analyze_trip(origin, destination, depart, weight_lb, interval="auto"):
                 ])
             cp["forecast"] = forecast
         r["stats"] = route_stats(r["checkpoints"], r["duration_s"])
+        r["influential_checkpoints"] = extract_influential_checkpoints(r["checkpoints"])
 
-    best, rationale = recommend(routes)
+    best, rationale, evaluations = recommend(routes, return_evaluations=True)
     all_prohibited = best is None
     recommended_id = routes.index(best) + 1 if best is not None else None
 
@@ -61,17 +62,37 @@ def analyze_trip(origin, destination, depart, weight_lb, interval="auto"):
     if len(routes) < 3:
         route_notice = f"Only {len(routes)} distinct route option(s) could be identified by the road network for this corridor."
 
+    has_unknown = any(r["stats"].get("has_unknown") for r in routes)
+
+    provenance_warnings = list(weather.metadata.get("warnings", []))
+    if has_unknown:
+        provenance_warnings.append("Incomplete weather data detected along one or more segments; flagged as Unknown risk.")
+
+    data_provenance = {
+        **weather.metadata,
+        "forecast_valid_start": depart_hour.isoformat(),
+        "forecast_valid_end": (depart + timedelta(hours=longest_h)).isoformat(),
+        "has_unknown_data": has_unknown,
+        "warnings": provenance_warnings,
+        "confidence": (
+            "Caution (Missing Observations)" if has_unknown
+            else "Moderate (Extended Outlook)" if longest_h > 168
+            else "High (Direct Hourly NWP)"
+        ),
+    }
+
     return {
         "forecast_start": depart_hour.isoformat(),
         "recommended_id": recommended_id,
         "all_prohibited": all_prohibited,
         "route_notice": route_notice,
         "rationale": rationale,
-        "routes": [_serialize(i + 1, r) for i, r in enumerate(routes)],
+        "data_provenance": data_provenance,
+        "routes": [_serialize(i + 1, r, evaluations.get(i + 1)) for i, r in enumerate(routes)],
     }
 
 
-def _serialize(rid, r):
+def _serialize(rid, r, evaluation=None):
     return {
         "id": rid,
         "name": f"Route {rid}",
@@ -79,6 +100,8 @@ def _serialize(rid, r):
         "duration_s": round(r["duration_s"]),
         "interval_mi": r["interval_mi"],
         "stats": r["stats"],
+        "evaluation": evaluation,
+        "influential_checkpoints": r.get("influential_checkpoints", []),
         "geometry": [[round(a, 5), round(b, 5)] for a, b in thin(r["coords"], MAX_GEOMETRY_POINTS)],
         "checkpoints": [
             {**cp, "lat": round(cp["lat"], 5), "lon": round(cp["lon"], 5),

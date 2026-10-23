@@ -2255,3 +2255,606 @@ button, input, select, textarea {
     transition-duration: 0.01ms !important;
   }
 }
+
+/* ==========================================================================
+   FEATURE 1: Explainable Route Recommendation & Rejections
+   ========================================================================== */
+
+.route-rank-indicator {
+  display: block;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--brand-accent);
+  margin-top: 1px;
+}
+
+[data-theme="dark"] .route-rank-indicator {
+  color: #60a5fa;
+}
+
+.rejection-explanation-box {
+  margin: 10px 0;
+  padding: 10px 12px;
+  background: rgba(239, 68, 68, 0.06);
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: var(--radius-md);
+  font-size: 12.5px;
+}
+
+[data-theme="dark"] .rejection-explanation-box {
+  background: rgba(239, 68, 68, 0.12);
+  border-color: rgba(239, 68, 68, 0.3);
+}
+
+.rejection-title-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  color: #b91c1c;
+  font-weight: 700;
+  margin-bottom: 4px;
+}
+
+[data-theme="dark"] .rejection-title-row {
+  color: #f87171;
+}
+
+.rejection-body {
+  margin: 0 0 6px 0;
+  color: var(--text-main);
+  line-height: 1.4;
+}
+
+.rejection-diffs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.diff-pill {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 2px 7px;
+  border-radius: var(--radius-full);
+}
+
+.diff-time {
+  background: rgba(37, 99, 235, 0.1);
+  color: #2563eb;
+  border: 1px solid rgba(37, 99, 235, 0.25);
+}
+
+.diff-severe {
+  background: rgba(239, 68, 68, 0.12);
+  color: #ef4444;
+  border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.diff-high {
+  background: rgba(249, 115, 22, 0.12);
+  color: #f97316;
+  border: 1px solid rgba(249, 115, 22, 0.3);
+}
+
+.hazard-checkpoints-section {
+  margin: 10px 0 6px 0;
+}
+
+.hazards-title {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: var(--text-muted);
+  display: block;
+  margin-bottom: 5px;
+}
+
+.hazard-chips-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.hazard-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-subtle);
+  border: 1px solid;
+  font-size: 11px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  color: var(--text-main);
+}
+
+.hazard-chip:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
+  background: var(--bg-surface-elevated);
+}
+
+.hz-mile {
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.hz-name {
+  font-weight: 600;
+}
+
+.hz-detail {
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.audit-consistency-row {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--border-light);
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.tag-mod {
+  background: rgba(245, 158, 11, 0.12);
+  color: #d97706;
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.tag-low {
+  background: rgba(16, 185, 129, 0.1);
+  color: #059669;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+}
+
+.tag-unknown {
+  background: rgba(100, 116, 139, 0.15);
+  color: #475569;
+  border: 1px dashed rgba(100, 116, 139, 0.4);
+}
+
+[data-theme="dark"] .tag-unknown {
+  color: #cbd5e1;
+}
+
+/* ==========================================================================
+   FEATURE 2: Weather Forecast Confidence & Provenance
+   ========================================================================== */
+
+.provenance-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+}
+
+.provenance-card.has-advisory {
+  border-color: rgba(245, 158, 11, 0.4);
+}
+
+.provenance-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.provenance-title-area {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.provenance-status-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  flex-shrink: 0;
+}
+
+.provenance-status-dot.is-live {
+  background: #10b981;
+  box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.2);
+}
+
+.provenance-status-dot.is-cached {
+  background: #3b82f6;
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.2);
+}
+
+.provenance-title-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.provenance-label {
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.provenance-sub {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+.provenance-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.provenance-refresh-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 4px 10px;
+  font-size: 11.5px;
+  font-weight: 600;
+  color: var(--text-main);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.provenance-refresh-btn:hover:not(:disabled) {
+  background: var(--brand-accent-light);
+  border-color: var(--brand-accent);
+  color: var(--brand-accent);
+}
+
+.provenance-refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.provenance-toggle-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+}
+
+.provenance-toggle-btn:hover {
+  background: var(--bg-subtle);
+  color: var(--text-main);
+}
+
+.provenance-badges-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border-light);
+}
+
+.prov-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: var(--text-muted);
+  background: var(--bg-subtle);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+}
+
+.prov-chip strong {
+  color: var(--text-main);
+}
+
+.provenance-advisory-banner {
+  margin-top: 8px;
+  padding: 8px 10px;
+  background: rgba(245, 158, 11, 0.08);
+  border: 1px solid rgba(245, 158, 11, 0.25);
+  border-radius: var(--radius-sm);
+  font-size: 11.5px;
+  display: flex;
+  gap: 8px;
+  color: #b45309;
+}
+
+[data-theme="dark"] .provenance-advisory-banner {
+  background: rgba(245, 158, 11, 0.15);
+  color: #fbbf24;
+}
+
+.advisory-content ul {
+  margin: 3px 0 0 0;
+  padding-left: 14px;
+}
+
+.provenance-details-drawer {
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed var(--border-light);
+  font-size: 11.5px;
+}
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 6px 12px;
+}
+
+.drawer-item {
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-label {
+  font-size: 10.5px;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.drawer-val {
+  color: var(--text-main);
+  font-weight: 500;
+  word-break: break-all;
+}
+
+.spin-icon {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* ==========================================================================
+   FEATURE 3: Interactive Route Risk Distance Timeline
+   ========================================================================== */
+
+.route-timeline-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-md);
+  padding: 12px 14px;
+  margin-bottom: 12px;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.04);
+}
+
+.timeline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+
+.timeline-title-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.timeline-icon {
+  width: 26px;
+  height: 26px;
+  border-radius: var(--radius-sm);
+  background: var(--brand-accent-light);
+  color: var(--brand-accent);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.timeline-title {
+  margin: 0;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--text-main);
+}
+
+.timeline-subtitle {
+  font-size: 11px;
+  color: var(--text-muted);
+  display: block;
+}
+
+.timeline-hint {
+  font-size: 11px;
+  color: var(--brand-accent);
+  font-weight: 500;
+}
+
+.timeline-bar-wrapper {
+  position: relative;
+  margin-bottom: 14px;
+}
+
+.timeline-bar-track {
+  display: flex;
+  width: 100%;
+  height: 28px;
+  border-radius: var(--radius-sm);
+  overflow: hidden;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-strong);
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.08);
+}
+
+.timeline-segment-btn {
+  height: 100%;
+  border: none;
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  position: relative;
+  transition: opacity 0.15s ease, filter 0.15s ease;
+  outline: none;
+}
+
+.timeline-segment-btn:hover {
+  filter: brightness(1.15);
+  z-index: 2;
+}
+
+.timeline-segment-btn:focus-visible {
+  outline: 2px solid #ffffff;
+  outline-offset: -2px;
+  z-index: 3;
+}
+
+.timeline-segment-btn.is-selected {
+  filter: brightness(1.2);
+  z-index: 4;
+}
+
+.timeline-active-indicator {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 50%;
+  width: 4px;
+  background: #ffffff;
+  transform: translateX(-50%);
+  box-shadow: 0 0 6px rgba(0, 0, 0, 0.7);
+  border-radius: 2px;
+}
+
+.timeline-axis-ticks {
+  position: relative;
+  width: 100%;
+  height: 30px;
+  margin-top: 4px;
+}
+
+.axis-tick {
+  position: absolute;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  font-size: 10.5px;
+  color: var(--text-muted);
+}
+
+.tick-line {
+  width: 1px;
+  height: 5px;
+  background: var(--border-strong);
+  margin-bottom: 2px;
+}
+
+.tick-mile {
+  font-weight: 700;
+  color: var(--text-main);
+  font-variant-numeric: tabular-nums;
+}
+
+.tick-eta {
+  font-size: 9.5px;
+  color: var(--text-muted);
+}
+
+.timeline-detail-callout {
+  margin-top: 8px;
+  padding: 10px 12px;
+  background: var(--bg-subtle);
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.callout-main {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  flex: 1;
+}
+
+.callout-badge-row {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.callout-risk-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.callout-mile-tag, .callout-eta-tag {
+  font-size: 11.5px;
+  color: var(--text-main);
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.callout-metrics-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  font-size: 11.5px;
+  color: var(--text-main);
+}
+
+.metric-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-surface);
+  padding: 2px 7px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-light);
+}
+
+.callout-reasons {
+  font-size: 11px;
+  color: #b91c1c;
+}
+
+[data-theme="dark"] .callout-reasons {
+  color: #fca5a5;
+}
+
+.callout-reasons ul {
+  margin: 2px 0 0 0;
+  padding-left: 14px;
+}
+
+.sync-forecast-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  background: var(--brand-accent);
+  color: #fff;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 6px 12px;
+  font-size: 11.5px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: opacity 0.15s ease;
+}
+
+.sync-forecast-btn:hover {
+  opacity: 0.9;
+}
+

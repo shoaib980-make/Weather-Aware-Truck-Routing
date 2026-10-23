@@ -344,3 +344,125 @@ class ApiAndIntegrationTests(SimpleTestCase):
         self.assertFalse(result["all_prohibited"])
         self.assertIn("routes", result)
         self.assertTrue(len(result["routes"][0]["checkpoints"]) > 0)
+        self.assertIn("data_provenance", result)
+        self.assertIn("retrieved_at", result["data_provenance"])
+        self.assertIn("evaluation", result["routes"][0])
+        self.assertIn("audited_miles_sum", result["routes"][0]["stats"])
+
+    def test_auditable_risk_miles_no_double_counting(self):
+        """Verify that severe, high, moderate, low, and unknown miles sum precisely to total miles."""
+        from .recommend import route_stats
+
+        # 4 checkpoints, segment_miles = 25 each -> total 100 miles
+        checkpoints = [
+            {"level": "Severe", "segment_miles": 25.0},
+            {"level": "High", "segment_miles": 25.0},
+            {"level": "Moderate", "segment_miles": 25.0},
+            {"level": "Low", "segment_miles": 25.0},
+        ]
+        stats = route_stats(checkpoints, duration_s=7200)
+        self.assertEqual(stats["severe_miles"], 25.0)
+        self.assertEqual(stats["high_miles"], 25.0)
+        self.assertEqual(stats["moderate_miles"], 25.0)
+        self.assertEqual(stats["low_miles"], 25.0)
+        self.assertEqual(stats["unknown_miles"], 0.0)
+        self.assertEqual(stats["audited_miles_sum"], 100.0)
+        self.assertTrue(stats["is_audited_consistent"])
+
+    def test_unknown_weather_never_low_risk(self):
+        """Unknown weather segments must be categorized as Unknown and not Low risk."""
+        from .recommend import route_stats
+
+        checkpoints = [
+            {"level": "Unknown", "segment_miles": 40.0},
+            {"level": "Low", "segment_miles": 60.0},
+        ]
+        stats = route_stats(checkpoints, duration_s=7200)
+        self.assertEqual(stats["unknown_miles"], 40.0)
+        self.assertEqual(stats["low_miles"], 60.0)
+        self.assertTrue(stats["has_unknown"])
+        self.assertEqual(stats["audited_miles_sum"], 100.0)
+
+    def test_explainable_recommendation_evaluations(self):
+        """Verify transparent evaluations, ranks, and rejection reasons for multi-route comparison."""
+        from .recommend import recommend
+
+        r1 = {
+            "id": 1,
+            "duration_s": 3600,
+            "stats": {
+                "no_travel_miles": 0,
+                "severe_miles": 0,
+                "high_miles": 10,
+                "moderate_miles": 20,
+                "low_miles": 70,
+                "unknown_miles": 0,
+                "avg_risk": 0.3,
+                "worst_risk": 2,
+                "duration_s": 3600,
+            }
+        }
+        r2 = {
+            "id": 2,
+            "duration_s": 4200,
+            "stats": {
+                "no_travel_miles": 0,
+                "severe_miles": 15,
+                "high_miles": 20,
+                "moderate_miles": 15,
+                "low_miles": 50,
+                "unknown_miles": 0,
+                "avg_risk": 0.8,
+                "worst_risk": 3,
+                "duration_s": 4200,
+            }
+        }
+
+        best, rationale, evals = recommend([r1, r2], return_evaluations=True)
+        self.assertEqual(best["id"], 1)
+        self.assertTrue(evals[1]["is_recommended"])
+        self.assertEqual(evals[1]["rank"], 1)
+        self.assertFalse(evals[2]["is_recommended"])
+        self.assertEqual(evals[2]["rank"], 2)
+        self.assertIn("rejection_reason", evals[2])
+        self.assertGreater(evals[2]["severe_diff_mi"], 0)
+        self.assertGreater(evals[2]["duration_diff_s"], 0)
+
+    def test_influential_checkpoints_extraction(self):
+        """Verify extraction of top hazard checkpoints with weather triggers."""
+        from .recommend import extract_influential_checkpoints
+
+        checkpoints = [
+            {
+                "lat": 40.0,
+                "lon": -85.0,
+                "eta": "2026-10-24T12:00:00Z",
+                "distance_from_origin_mi": 50.0,
+                "segment_miles": 25.0,
+                "wind": 48.0,
+                "rain": 0.2,
+                "snow": 0.0,
+                "temp": 55.0,
+                "level": "High",
+                "risk_reason": "High wind warning for heavy load"
+            },
+            {
+                "lat": 40.5,
+                "lon": -86.0,
+                "eta": "2026-10-24T12:30:00Z",
+                "distance_from_origin_mi": 75.0,
+                "segment_miles": 25.0,
+                "wind": 10.0,
+                "rain": 0.0,
+                "snow": 0.0,
+                "temp": 55.0,
+                "level": "Low",
+                "risk_reason": "Favorable"
+            }
+        ]
+        hazards = extract_influential_checkpoints(checkpoints)
+        self.assertEqual(len(hazards), 1)
+        self.assertEqual(hazards[0]["level_name"], "High")
+        self.assertEqual(hazards[0]["level"], 2)
+        self.assertEqual(hazards[0]["wind_mph"], 48.0)
+
