@@ -24,7 +24,8 @@ WSGI_APPLICATION = "config.wsgi.application"
 
 # On Vercel Serverless, the root filesystem is read-only; /tmp is the only writable directory
 if os.environ.get("VERCEL"):
-    db_path = Path("/tmp/db.sqlite3")
+    import tempfile
+    db_path = Path(tempfile.gettempdir()) / "db.sqlite3"
 else:
     db_path = BASE_DIR / "db.sqlite3"
 
