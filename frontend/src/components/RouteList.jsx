@@ -145,10 +145,8 @@ function RouteCard({
           <span className="metric-val text-accent">{fmtTime(eta)}</span>
         </div>
         <div className="metric-box">
-          <span className="metric-label">Elevated Risk Miles</span>
-          <span className={`metric-val ${m.elevated_risk_miles > 0 ? "text-danger" : "text-success"}`}>
-            {m.elevated_risk_miles || 0} mi ({m.elevated_risk_pct || 0}%)
-          </span>
+          <span className="metric-label">Avg Weather Risk</span>
+          <span className="metric-val">{s.avg_risk.toFixed(2)} / 4.0</span>
         </div>
       </div>
 
