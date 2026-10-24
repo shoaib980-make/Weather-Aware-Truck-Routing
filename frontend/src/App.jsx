@@ -27,23 +27,18 @@ export default function App() {
   const [activeCheckpoint, setActiveCheckpoint] = useState(null);
   const [formInitialValues, setFormInitialValues] = useState(null);
   const [currentOrigin, setCurrentOrigin] = useState(null);
-  const [currentDestination, setCurrentDestination] = useState(null);
   const [mobileTab, setMobileTab] = useState("setup"); // 'setup' | 'routes' | 'map'
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem("safehaul-theme") || "light";
-  });
-
   const [lastPayload, setLastPayload] = useState(null);
   const [refreshLoading, setRefreshLoading] = useState(false);
 
   useEffect(() => {
-    document.documentElement.setAttribute("data-theme", theme);
-    localStorage.setItem("safehaul-theme", theme);
-  }, [theme]);
-
-  function handleToggleTheme() {
-    setTheme((t) => (t === "dark" ? "light" : "dark"));
-  }
+    document.documentElement.removeAttribute("data-theme");
+    try {
+      localStorage.removeItem("safehaul-theme");
+    } catch {
+      // ignore
+    }
+  }, []);
 
   function handleSelectPreset(preset) {
     setFormInitialValues({
@@ -189,8 +184,6 @@ export default function App() {
         onSelectPreset={handleSelectPreset}
         onOpenSafety={() => setSafetyOpen(true)}
         onOpenSavedTrips={() => setSavedTripsOpen(true)}
-        theme={theme}
-        onToggleTheme={handleToggleTheme}
       />
 
       {/* Floating Toast Notification */}
@@ -386,7 +379,6 @@ export default function App() {
             onSelect={setSelectedId}
             hour={hour}
             showHeat={showHeat}
-            theme={theme}
             activeCheckpoint={activeCheckpoint}
             onSelectCheckpoint={handleSelectCheckpoint}
             origin={currentOrigin || lastPayload?.origin}

@@ -1754,41 +1754,6 @@ button, input, select, textarea {
   color: var(--brand-accent);
 }
 
-.layer-picker-group {
-  display: flex;
-  background: var(--bg-surface);
-  border: 1px solid var(--border-light);
-  border-radius: var(--radius-full);
-  padding: 3px;
-  gap: 3px;
-  box-shadow: var(--shadow-md);
-}
-
-.layer-chip {
-  background: none;
-  border: none;
-  padding: 4px 9px;
-  font-size: 10.5px;
-  font-weight: 700;
-  color: var(--text-muted);
-  border-radius: var(--radius-full);
-  cursor: pointer;
-  transition: all 0.15s ease;
-  min-height: 28px;
-}
-
-.layer-chip:hover {
-  color: var(--text-main);
-}
-
-.layer-chip.active {
-  background: var(--brand-primary);
-  color: #fff;
-}
-
-[data-theme="dark"] .layer-chip.active {
-  background: var(--brand-accent);
-}
 
 /* Floating Route Legend / Route Alternatives Selection */
 .floating-legend-card {

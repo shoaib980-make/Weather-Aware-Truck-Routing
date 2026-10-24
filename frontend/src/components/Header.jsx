@@ -33,7 +33,7 @@ export const PRESETS = [
   },
 ];
 
-export default function Header({ onSelectPreset, onOpenSafety, onOpenSavedTrips, theme, onToggleTheme }) {
+export default function Header({ onSelectPreset, onOpenSafety, onOpenSavedTrips }) {
   const [healthy, setHealthy] = useState(null);
 
   useEffect(() => {
@@ -120,16 +120,6 @@ export default function Header({ onSelectPreset, onOpenSafety, onOpenSavedTrips,
           <span className="btn-label">Safety Rules</span>
         </button>
 
-        {/* Theme toggle */}
-        <button
-          type="button"
-          className="header-btn icon-only"
-          onClick={onToggleTheme}
-          title={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-          aria-label={`Switch to ${theme === "dark" ? "light" : "dark"} mode`}
-        >
-          <Icon name={theme === "dark" ? "sun" : "moon"} size={16} />
-        </button>
 
         {/* Live Service Indicator */}
         <div

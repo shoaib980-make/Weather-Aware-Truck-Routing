@@ -5,23 +5,11 @@ import HeatCorridor from "./HeatCorridor.jsx";
 import { LEVEL_COLORS, ROUTE_COLORS, fmtTime } from "../risk.js";
 import { Icon } from "./Icons.jsx";
 
-// Tile layer provider options
-const BASE_LAYERS = {
-  light: {
-    name: "Light Carto",
-    url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  },
-  dark: {
-    name: "Dark Carto",
-    url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-  },
-  osm: {
-    name: "Standard OSM",
-    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
-  },
+// Direct default OpenStreetMap base layer
+const OSM_TILE_LAYER = {
+  name: "Standard OSM",
+  url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+  attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors',
 };
 
 function FitRoutesHandler({ routes, origin, destination, activeCheckpoint, isVisible, isSliderCollapsed }) {
@@ -119,7 +107,7 @@ function FitRoutesHandler({ routes, origin, destination, activeCheckpoint, isVis
   return null;
 }
 
-function MapControls({ onFitBounds, activeLayer, onChangeLayer, showLegend, onToggleLegend, hasRoutes }) {
+function MapControls({ onFitBounds, showLegend, onToggleLegend, hasRoutes }) {
   return (
     <div className="custom-map-controls" role="toolbar" aria-label="Map display controls">
       <div className="control-btn-group">
@@ -146,20 +134,6 @@ function MapControls({ onFitBounds, activeLayer, onChangeLayer, showLegend, onTo
             <span className="ctrl-tooltip">Legend</span>
           </button>
         )}
-      </div>
-
-      <div className="layer-picker-group">
-        {Object.entries(BASE_LAYERS).map(([key, val]) => (
-          <button
-            key={key}
-            type="button"
-            className={`layer-chip ${activeLayer === key ? "active" : ""}`}
-            onClick={() => onChangeLayer(key)}
-            title={`Switch to ${val.name} basemap`}
-          >
-            {key.toUpperCase()}
-          </button>
-        ))}
       </div>
     </div>
   );
@@ -224,7 +198,6 @@ export default function MapView({
   onSelect,
   hour,
   showHeat,
-  theme,
   activeCheckpoint,
   onSelectCheckpoint,
   origin,
@@ -233,15 +206,9 @@ export default function MapView({
   isVisible,
   isSliderCollapsed,
 }) {
-  const [baseLayer, setBaseLayer] = useState(theme === "dark" ? "dark" : "light");
   const [showLegend, setShowLegend] = useState(true);
   const [mapInstance, setMapInstance] = useState(null);
   const mapInstanceRef = useRef(null);
-
-  // Sync default layer with theme change
-  useEffect(() => {
-    setBaseLayer(theme === "dark" ? "dark" : "light");
-  }, [theme]);
 
   const routes = result?.routes || [];
 
@@ -311,9 +278,8 @@ export default function MapView({
         <PaneSetup />
 
         <TileLayer
-          key={baseLayer}
-          attribution={BASE_LAYERS[baseLayer].attribution}
-          url={BASE_LAYERS[baseLayer].url}
+          attribution={OSM_TILE_LAYER.attribution}
+          url={OSM_TILE_LAYER.url}
           maxZoom={19}
         />
 
@@ -333,7 +299,6 @@ export default function MapView({
         {routes.map((r) => {
           const isSel = r.id === selectedId;
           const color = ROUTE_COLORS[(r.id - 1) % 3];
-          const isDarkMap = baseLayer === "dark" || theme === "dark";
 
           if (isSel) {
             return (
@@ -344,9 +309,9 @@ export default function MapView({
                   key={`casing-${r.id}`}
                   positions={r.geometry}
                   pathOptions={{
-                    color: isDarkMap ? "#ffffff" : "#0f172a",
+                    color: "#0f172a",
                     weight: 9.5,
-                    opacity: isDarkMap ? 0.95 : 0.85,
+                    opacity: 0.85,
                     lineCap: "round",
                     lineJoin: "round",
                   }}
@@ -534,8 +499,6 @@ export default function MapView({
       <div className="map-controls-dock" role="region" aria-label="Map controls and route selection">
         <MapControls
           onFitBounds={handleFitAll}
-          activeLayer={baseLayer}
-          onChangeLayer={setBaseLayer}
           showLegend={showLegend}
           onToggleLegend={() => setShowLegend((v) => !v)}
           hasRoutes={routes.length > 0}
