@@ -6,19 +6,52 @@ No API keys needed: routing = **OSRM**, weather = **Open-Meteo**, geocoding = **
 
 ---
 
+## Deliverables & Live Links
+
+- **Hosted Web Application:** [https://safehaul-routeiq-frontend.vercel.app](https://safehaul-routeiq-frontend.vercel.app)
+- **GitHub Repository:** [https://github.com/shoaib980-make/Weather-Aware-Truck-Routing](https://github.com/shoaib980-make/Weather-Aware-Truck-Routing)
+- **5–10 Min Loom Walkthrough:** [https://www.loom.com/share/your-walkthrough-id-here](https://www.loom.com/share/your-walkthrough-id-here) *(Please replace with your recording URL)*
+
+---
+
+## Weather Risk Thresholds & Load Physics
+
+The application classifies weather hazards using half-open intervals $[lower, upper)$, with rain and snow upper boundaries of Severe being inclusive:
+
+| Hazard Condition | Low (0) | Moderate (1) | High (2) | Severe (3) | No Travel (4) |
+| :--- | :---: | :---: | :---: | :---: | :---: |
+| **Sustained Wind** | < 25 mph | 25–34 mph | 35–44 mph | 45–54 mph | $\ge$ 55 mph |
+| **Hourly Rain** | < 0.10 in/hr | 0.10–0.25 in/hr | 0.25–0.50 in/hr | 0.50–1.00 in/hr | > 1.00 in/hr |
+| **Hourly Snow** | < 0.5 in/hr | 0.5–1.0 in/hr | 1.0–2.0 in/hr | 2.0–3.0 in/hr | > 3.0 in/hr |
+
+### Load-Dependent Aerodynamic Rollover Rules
+- **Wind $\ge$ 55 mph:** Universal **No Travel** regardless of truck weight.
+- **Wind 45–54 mph with Gross Weight > 30,000 lb:** Upgrades to **No Travel** (rollover hazard).
+- **Wind 35–44 mph with Gross Weight > 40,000 lb:** Upgrades to **Severe Risk**.
+- **Missing / Incomplete Forecasts:** Classified as **Unknown Risk** (tinted slate gray, never assumed safe).
+
+### Lexicographic Recommendation Priority
+Candidate routes are evaluated strictly in the following priority:
+1. **No Travel Miles (Zero-Tolerance Hard Constraint):** Routes with active No Travel conditions are disqualified. If all routes are prohibited, the application halts travel.
+2. **Fewest Severe Risk Miles**
+3. **Fewest High Risk Miles**
+4. **Lowest Corridor Average Risk**
+5. **Shortest Commercial Travel Time** (final tie-breaker)
+
+---
+
 ## Key Capabilities
 
 - **Corridor Analysis & Alternatives:** Queries OSRM for alternative routes; detours via waypoints if fewer than 3 alternatives exist. Near-duplicates (>90% overlap) are discarded.
 - **Dynamic Checkpoint Weather Sampling:** Checkpoints sampled every 10, 25, or 50 miles (or Automatic based on total trip distance). Each checkpoint receives an ETA calculated from truck duration factors (`TRUCK_TIME_FACTOR` default 1.15).
-- **Aerodynamic Crosswind & Rollover Physics:** Evaluates sustained 10 m wind speed, hourly precipitation rate, and snowfall rate against strict load-weight thresholds:
-  - Universal No Travel at sustained wind $\ge$ 55 mph.
-  - Wind 45–54 mph with gross load weight > 30,000 lb triggers **No Travel**.
-  - Wind 35–44 mph with gross load weight > 40,000 lb triggers **Severe Risk**.
-- **Lexicographic Recommendation Engine:** Evaluates candidate routes strictly by: fewest No Travel miles $\to$ fewest Severe miles $\to$ fewest High-risk miles $\to$ lowest corridor average risk $\to$ shortest travel time.
+- **Auditable Risk Mileage without Double-Counting:** Route distance is allocated across non-overlapping segment-midpoint Voronoi polygons, ensuring $\sum \text{Miles}_{\text{Level}} \equiv \text{Total Route Miles}$.
 - **48-Hour Forecast Heatmap Corridor:** Pre-computed 49-hour risk matrix (0–48 h) enables zero-latency scrubbing, animated playback (1x, 2x, 4x), step controls, and instant jumps to departure or arrival.
 - **Interactive Map Experience:** Vector pins for origin/destination, distinct alternative route styling with high-contrast active route casing, color-coded checkpoint markers, multi-basemap switching (Carto Light, Carto Dark, OpenStreetMap), and rich inspection popovers with Prev/Next navigation.
 - **Side-by-Side Comparison Matrix:** Tabular comparison of Route 1 vs Route 2 vs Route 3 across distances, travel times, ETAs, risk mileage breakdowns, and checkpoint counts.
-- **Full WCAG 2.2 AA Accessibility & Polish:** Keyboard accessible combobox geocoding with arrow key navigation, dark/light theme toggle, screen-reader live regions, visible focus rings, and high-contrast color tokens.
+- **Professional PDF Route Reports:** Downloadable dispatch report (`Origin_to_Destination_Route_Report.pdf`) featuring authentic route-based names, official PDF metadata, custom vector header emblems, safety matrices, and checkpoint logs.
+- **Trip History & Re-analysis:** Save, review, and re-run past commercial trips against fresh live weather forecasts via `/api/trips/`.
+- **Mobile-First Responsive Interface:** Dedicated `.map-controls-dock` preventing UI overlap, smart asymmetrical map bounds padding, collapsible 48-hour timeline slider, and full touch-target compliance.
+- **Full WCAG 2.2 AA Accessibility:** Keyboard accessible combobox geocoding with arrow key navigation, dark/light theme toggle, screen-reader live regions, visible focus rings, and high-contrast color tokens.
 
 ---
 
@@ -29,8 +62,8 @@ No API keys needed: routing = **OSRM**, weather = **Open-Meteo**, geocoding = **
 ```bash
 cd backend
 pip install -r requirements.txt
-python manage.py test          # Run unit test suite (21 tests)
-python test_integration.py     # End-to-end integration & validation test
+python manage.py test routing   # Run unit test suite (27 tests passing)
+python test_integration.py     # Live end-to-end corridor integration & API test
 python verify_branding.py      # Title and favicon endpoint verification
 python manage.py runserver     # Starts API on http://127.0.0.1:8000
 ```
@@ -40,7 +73,7 @@ python manage.py runserver     # Starts API on http://127.0.0.1:8000
 ```bash
 cd frontend
 npm install
-npm test                       # Run frontend unit tests (6 tests via node:test)
+npm test                       # Run frontend unit tests (20 tests passing via node:test)
 npm run dev                    # Starts Vite on http://localhost:5173 (proxies /api to Django)
 ```
 
@@ -48,7 +81,7 @@ To build for production:
 
 ```bash
 cd frontend
-npm run build                  # Builds optimized bundle to frontend/dist
+npm run build                  # Builds optimized bundle to frontend/dist (398 kB JS, 80 kB CSS)
 ```
 
 ---
@@ -84,17 +117,19 @@ docker run -p 8000:8000 truck-routing
 Weather-Aware-Truck-Routing/
 ├── Dockerfile                  # Multi-stage production container (Node + Python Gunicorn)
 ├── .env.example                # Configuration template with placeholders
-├── README.md                   # System documentation
+├── README.md                   # System documentation & evaluation deliverables
 ├── backend/
 │   ├── config/                 # Django settings, WSGI, URLs
 │   ├── routing/
 │   │   ├── analysis.py         # Pipeline orchestrator: routes -> checkpoints -> weather -> risk -> recommendation
-│   │   ├── geometry.py         # Route geometry thinning & polyline algorithms
+│   │   ├── geometry.py         # Route geometry thinning (Douglas-Peucker) & polyline math
 │   │   ├── recommend.py        # Lexicographic ranking criteria, influential hazards & rationale generator
+│   │   ├── report_pdf.py       # Professional dispatch PDF generator with dynamic route filename & vector emblem
 │   │   ├── risk.py             # Weather risk classification table & load weight physics
 │   │   ├── routes.py           # OSRM integration, waypoint offset detours, checkpoint builder
-│   │   ├── tests.py            # Unit test suite for risk, recommendation, and checkpoint spacing (25 tests)
-│   │   ├── views.py            # API endpoints: /api/analyze, /api/geocode, /api/health
+│   │   ├── tests.py            # Unit test suite for risk, recommendation, and checkpoint spacing (27 tests)
+│   │   ├── trip_views.py       # Trip history CRUD and re-analysis endpoints (/api/trips)
+│   │   ├── views.py            # Core API endpoints: /api/analyze, /api/geocode, /api/health
 │   │   └── weather.py          # Parallel batched Open-Meteo hourly weather loader with cache bypass
 │   ├── test_integration.py     # Live API integration & server-side validation smoke test
 │   ├── verify_branding.py      # Tab title, favicon endpoints, and WhiteNoise verification
@@ -110,19 +145,20 @@ Weather-Aware-Truck-Routing/
     │   ├── api.js              # Robust API layer with health check, timeout & abort signals
     │   ├── risk.js             # Semantic color scales, formatting, and ETA calculation
     │   ├── risk.test.js        # Frontend unit tests for risk math and formatters
-    │   ├── features.test.js    # Unit tests for timeline, auditable miles, and provenance
+    │   ├── features.test.js    # Unit tests for timeline, auditable miles, and layer hierarchy (20 tests)
     │   ├── styles.css          # Design system: tokens, light/dark themes, responsive layouts
     │   └── components/
     │       ├── Header.jsx       # Branding, corridor presets, theme switch, service health
     │       ├── Icons.jsx        # Lightweight SVG icon system for logistics & weather
-    │       ├── MapView.jsx      # Leaflet map, vector markers, layer picker, route legend
+    │       ├── MapView.jsx      # Leaflet map, vector markers, layer picker, route legend, Leaflet panes
     │       ├── HeatCorridor.jsx # Canvas-based dynamic weather heatmap overlay
-    │       ├── HeatSlider.jsx   # 0–48h scrubbing timeline, playback, risk ribbon preview
+    │       ├── HeatSlider.jsx   # 0–48h scrubbing timeline, playback, risk ribbon preview, collapsible mobile mode
     │       ├── PlaceInput.jsx   # Accessible combobox geocoder with keyboard navigation
     │       ├── RouteList.jsx    # Recommendation banner, route cards, matrix, checkpoint log
     │       ├── RouteRiskTimeline.jsx # Distance-proportional horizontal risk timeline with ticks
     │       ├── DataProvenanceCard.jsx # Forecast freshness, NWP model provenance, cache bypass
     │       ├── SafetyModal.jsx  # Federal safety rules and truck rollover matrix dialog
+    │       ├── SavedTripsModal.jsx # Saved trip history and re-analysis dialog
     │       └── TripForm.jsx     # Trip configuration form with swap button & weight physics
 ```
 
@@ -175,6 +211,12 @@ Returns array of candidate locations matching query with `label`, `lat`, and `lo
 
 ### `GET /api/health`
 Returns `{"status": "ok"}` for container health probes and uptime monitoring.
+
+### `GET /api/trips/` & `POST /api/trips/`
+Retrieve saved commercial trip history or save a new trip configuration with route analysis results.
+
+### `GET /api/trips/{id}/pdf/`
+Generate and download an official route dispatch report in PDF format.
 
 ---
 
