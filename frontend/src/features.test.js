@@ -244,5 +244,35 @@ test("Route selection accurately selects geometry, travel time, and distance", (
   assert.deepEqual(sel3.geometry[1], [43.0, -89.4]);
 });
 
+test("Corridor pending and initial states safely handle null or partial origin and destination", () => {
+  function formatPendingEndpoints(currentOrigin, currentDestination) {
+    if (!currentOrigin && !currentDestination) return null;
+    const originText = currentOrigin?.label ? currentOrigin.label.split(",")[0] : "Origin";
+    const destText = currentDestination?.label ? currentDestination.label.split(",")[0] : "Destination";
+    return `${originText} → ${destText}`;
+  }
+
+  // 1. Initial empty state: both null
+  assert.equal(formatPendingEndpoints(null, null), null);
+
+  // 2. Only origin provided
+  assert.equal(formatPendingEndpoints({ label: "Dallas, TX" }, null), "Dallas → Destination");
+
+  // 3. Only destination provided
+  assert.equal(formatPendingEndpoints(null, { label: "Atlanta, GA" }), "Origin → Atlanta");
+
+  // 4. Incomplete objects with missing or undefined label
+  assert.equal(formatPendingEndpoints({}, {}), "Origin → Destination");
+
+  // 5. Complete objects
+  assert.equal(
+    formatPendingEndpoints(
+      { label: "Chicago, IL, USA" },
+      { label: "Denver, CO, USA" }
+    ),
+    "Chicago → Denver"
+  );
+});
+
 
 

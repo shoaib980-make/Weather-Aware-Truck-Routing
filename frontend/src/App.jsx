@@ -27,6 +27,7 @@ export default function App() {
   const [activeCheckpoint, setActiveCheckpoint] = useState(null);
   const [formInitialValues, setFormInitialValues] = useState(null);
   const [currentOrigin, setCurrentOrigin] = useState(null);
+  const [currentDestination, setCurrentDestination] = useState(null);
   const [mobileTab, setMobileTab] = useState("setup"); // 'setup' | 'routes' | 'map'
   const [lastPayload, setLastPayload] = useState(null);
   const [refreshLoading, setRefreshLoading] = useState(false);
@@ -359,7 +360,7 @@ export default function App() {
                 <div className="pending-status-text">
                   <Icon name="map-pin" size={14} className="text-accent" />
                   <span>
-                    {currentOrigin ? currentOrigin.label.split(",")[0] : "Origin"} → {currentDestination ? currentDestination.label.split(",")[0] : "Destination"}
+                    {currentOrigin?.label ? currentOrigin.label.split(",")[0] : "Origin"} → {currentDestination?.label ? currentDestination.label.split(",")[0] : "Destination"}
                   </span>
                 </div>
                 <button
