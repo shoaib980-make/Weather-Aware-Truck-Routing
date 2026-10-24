@@ -64,6 +64,7 @@ function RouteCard({
   recommended,
   onSelect,
   onSelectCheckpoint,
+  onViewOnMap,
 }) {
   const s = route.stats;
   const ev = route.evaluation;
@@ -239,10 +240,27 @@ function RouteCard({
       </div>
 
       <div className="route-card-footer">
-        <span className="select-prompt">
-          {selected ? "Currently Displaying on Map & Timeline" : "Click to View Corridor & Checkpoints"}
-        </span>
-        <Icon name={selected ? "check" : "chevron-right"} size={16} />
+        <div className="card-footer-status">
+          <span className="select-prompt">
+            {selected ? "Currently Displaying on Map & Timeline" : "Tap to Select Corridor"}
+          </span>
+          <Icon name={selected ? "check" : "chevron-right"} size={16} />
+        </div>
+        {onViewOnMap && (
+          <button
+            type="button"
+            className="view-on-map-btn"
+            onClick={(e) => {
+              e.stopPropagation();
+              onViewOnMap();
+            }}
+            title="Switch directly to Interactive Map"
+            aria-label={`View ${route.name} on map`}
+          >
+            <Icon name="map-pin" size={14} />
+            <span>View on Map</span>
+          </button>
+        )}
       </div>
     </article>
   );
@@ -543,6 +561,7 @@ export default function RouteList({
   isSavingTrip,
   onDownloadPdf,
   isDownloadingPdf,
+  onViewOnMap,
 }) {
   const [activeTab, setActiveTab] = useState("cards"); // 'cards' | 'matrix' | 'checkpoints'
   const [copied, setCopied] = useState(false);
@@ -703,6 +722,7 @@ Rationale: ${result.rationale}`;
                 recommended={r.id === result.recommended_id}
                 onSelect={() => onSelect(r.id)}
                 onSelectCheckpoint={onSelectCheckpoint}
+                onViewOnMap={() => onViewOnMap?.(r.id)}
               />
             ))}
           </div>

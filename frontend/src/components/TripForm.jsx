@@ -24,7 +24,7 @@ const WEIGHT_PRESETS = [
   { label: "Max 80k Semi", value: 78000 },
 ];
 
-export default function TripForm({ initialValues, onSubmit, loading }) {
+export default function TripForm({ initialValues, onSubmit, loading, onPlacesChange }) {
   const [origin, setOrigin] = useState(null);
   const [destination, setDestination] = useState(null);
   const [departure, setDeparture] = useState(getInitialDeparture);
@@ -41,6 +41,11 @@ export default function TripForm({ initialValues, onSubmit, loading }) {
       if (initialValues.weight) setWeight(initialValues.weight);
     }
   }, [initialValues]);
+
+  // Notify parent of location changes so Map can show markers immediately
+  useEffect(() => {
+    onPlacesChange?.({ origin, destination });
+  }, [origin, destination, onPlacesChange]);
 
   // Animated loading steps feedback
   useEffect(() => {

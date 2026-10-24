@@ -8,6 +8,7 @@ import SafetyModal from "./components/SafetyModal.jsx";
 import SavedTripsModal from "./components/SavedTripsModal.jsx";
 import TripForm from "./components/TripForm.jsx";
 import { Icon } from "./components/Icons.jsx";
+import { ROUTE_COLORS } from "./risk.js";
 
 export default function App() {
   const [result, setResult] = useState(null);
@@ -16,6 +17,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [hour, setHour] = useState(0);
   const [showHeat, setShowHeat] = useState(true);
+  const [sliderCollapsed, setSliderCollapsed] = useState(false);
   const [safetyOpen, setSafetyOpen] = useState(false);
   const [savedTripsOpen, setSavedTripsOpen] = useState(false);
   const [isSavingTrip, setIsSavingTrip] = useState(false);
@@ -24,6 +26,8 @@ export default function App() {
   const [departureTime, setDepartureTime] = useState("");
   const [activeCheckpoint, setActiveCheckpoint] = useState(null);
   const [formInitialValues, setFormInitialValues] = useState(null);
+  const [currentOrigin, setCurrentOrigin] = useState(null);
+  const [currentDestination, setCurrentDestination] = useState(null);
   const [mobileTab, setMobileTab] = useState("setup"); // 'setup' | 'routes' | 'map'
   const [theme, setTheme] = useState(() => {
     return localStorage.getItem("safehaul-theme") || "light";
@@ -47,6 +51,8 @@ export default function App() {
       destination: preset.destination,
       weight: preset.weight,
     });
+    setCurrentOrigin(preset.origin);
+    setCurrentDestination(preset.destination);
     setError("");
   }
 
@@ -219,6 +225,10 @@ export default function App() {
                 initialValues={formInitialValues}
                 onSubmit={handleAnalyze}
                 loading={loading}
+                onPlacesChange={(places) => {
+                  setCurrentOrigin(places.origin);
+                  setCurrentDestination(places.destination);
+                }}
               />
             </section>
 
@@ -256,6 +266,10 @@ export default function App() {
                   isSavingTrip={isSavingTrip}
                   onDownloadPdf={handleDownloadPdf}
                   isDownloadingPdf={isDownloadingPdf}
+                  onViewOnMap={(routeId) => {
+                    setSelectedId(routeId);
+                    setMobileTab("map");
+                  }}
                 />
               </div>
             ) : (
@@ -292,6 +306,80 @@ export default function App() {
 
         {/* Right Pane: Interactive Leaflet Map & HeatSlider */}
         <main className={`app-map-pane ${mobileTab !== "map" ? "mobile-pane-hidden" : ""}`}>
+          {/* Mobile Corridor Status & Quick Route Switcher Bar */}
+          <div className="mobile-map-corridor-bar" role="region" aria-label="Mobile Corridor Status">
+            {result ? (
+              <div className="corridor-bar-content">
+                <div className="corridor-summary-row">
+                  <div className="corridor-endpoints-title">
+                    <span className="corridor-city origin-city">
+                      {lastPayload?.origin?.label?.split(",")[0] || currentOrigin?.label?.split(",")[0] || "Origin"}
+                    </span>
+                    <Icon name="chevron-right" size={13} className="corridor-arrow-icon" />
+                    <span className="corridor-city dest-city">
+                      {lastPayload?.destination?.label?.split(",")[0] || currentDestination?.label?.split(",")[0] || "Dest"}
+                    </span>
+                  </div>
+                  <button
+                    type="button"
+                    className="corridor-details-btn"
+                    onClick={() => setMobileTab("routes")}
+                    aria-label="View Route Comparisons"
+                  >
+                    <Icon name="layers" size={13} />
+                    <span>View All {result.routes.length} Routes</span>
+                  </button>
+                </div>
+
+                <div className="corridor-route-chips" role="radiogroup" aria-label="Route alternatives">
+                  {result.routes.map((r) => {
+                    const isSel = r.id === selectedId;
+                    const isRec = r.id === result.recommended_id;
+                    const color = ROUTE_COLORS[(r.id - 1) % 3];
+                    const sevMiles = r.stats?.severe_miles || 0;
+                    const noTravMiles = r.stats?.no_travel_miles || 0;
+
+                    return (
+                      <button
+                        key={r.id}
+                        type="button"
+                        role="radio"
+                        aria-checked={isSel}
+                        className={`mobile-route-chip ${isSel ? "is-selected" : ""}`}
+                        onClick={() => setSelectedId(r.id)}
+                      >
+                        <span className="route-chip-dot" style={{ background: color }} />
+                        <span className="route-chip-name">{r.name}</span>
+                        {isRec && <span className="route-chip-badge rec-badge">Safest</span>}
+                        {noTravMiles > 0 ? (
+                          <span className="route-chip-badge danger-badge">No Travel</span>
+                        ) : sevMiles > 0 ? (
+                          <span className="route-chip-badge warn-badge">{sevMiles}m sev</span>
+                        ) : null}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            ) : (currentOrigin || currentDestination) ? (
+              <div className="corridor-bar-pending">
+                <div className="pending-status-text">
+                  <Icon name="map-pin" size={14} className="text-accent" />
+                  <span>
+                    {currentOrigin ? currentOrigin.label.split(",")[0] : "Origin"} → {currentDestination ? currentDestination.label.split(",")[0] : "Destination"}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="pending-analyze-btn"
+                  onClick={() => setMobileTab("setup")}
+                >
+                  Configure & Analyze
+                </button>
+              </div>
+            ) : null}
+          </div>
+
           <MapView
             result={result}
             selectedId={selectedId}
@@ -301,6 +389,11 @@ export default function App() {
             theme={theme}
             activeCheckpoint={activeCheckpoint}
             onSelectCheckpoint={handleSelectCheckpoint}
+            origin={currentOrigin || lastPayload?.origin}
+            destination={currentDestination || lastPayload?.destination}
+            lastPayload={lastPayload}
+            isVisible={mobileTab === "map"}
+            isSliderCollapsed={sliderCollapsed}
           />
 
           {/* Timeline HeatSlider Overlay */}
@@ -312,6 +405,8 @@ export default function App() {
               showHeat={showHeat}
               onToggle={setShowHeat}
               selectedRoute={selectedRoute}
+              collapsed={sliderCollapsed}
+              onToggleCollapse={setSliderCollapsed}
             />
           )}
         </main>

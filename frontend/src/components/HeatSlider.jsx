@@ -4,9 +4,21 @@ import { Icon } from "./Icons.jsx";
 
 const MAX_HOUR = 48;
 
-export default function HeatSlider({ start, hour, onHour, showHeat, onToggle, selectedRoute }) {
+export default function HeatSlider({
+  start,
+  hour,
+  onHour,
+  showHeat,
+  onToggle,
+  selectedRoute,
+  collapsed,
+  onToggleCollapse,
+}) {
   const [playing, setPlaying] = useState(false);
   const [speed, setSpeed] = useState(1); // 1x, 2x, 4x
+  const [isLocalCollapsed, setIsLocalCollapsed] = useState(false);
+
+  const isCollapsed = collapsed !== undefined ? collapsed : isLocalCollapsed;
 
   const speedInterval = speed === 1 ? 600 : speed === 2 ? 300 : 150;
 
@@ -55,7 +67,11 @@ export default function HeatSlider({ start, hour, onHour, showHeat, onToggle, se
   }
 
   return (
-    <div className="heat-slider-container" role="region" aria-label="Forecast timeline slider">
+    <div
+      className={`heat-slider-container ${isCollapsed ? "is-collapsed" : ""}`}
+      role="region"
+      aria-label="Forecast timeline slider"
+    >
       <div className="heat-slider-header">
         <div className="heat-toggle-group">
           <label className="toggle-switch">
@@ -126,6 +142,21 @@ export default function HeatSlider({ start, hour, onHour, showHeat, onToggle, se
           >
             {speed}x
           </button>
+
+          {/* Mobile Collapse/Expand Toggle to maximize map view */}
+          <button
+            type="button"
+            className="collapse-toggle-btn"
+            onClick={() => {
+              if (onToggleCollapse) onToggleCollapse(!isCollapsed);
+              else setIsLocalCollapsed(!isLocalCollapsed);
+            }}
+            title={isCollapsed ? "Expand timeline & weather details" : "Collapse to maximize map view"}
+            aria-label={isCollapsed ? "Expand timeline" : "Collapse timeline"}
+          >
+            <Icon name={isCollapsed ? "chevron-up" : "chevron-down"} size={14} />
+            <span className="collapse-text">{isCollapsed ? "Timeline" : "Hide"}</span>
+          </button>
         </div>
       </div>
 
@@ -162,11 +193,11 @@ export default function HeatSlider({ start, hour, onHour, showHeat, onToggle, se
         )}
 
         <div className="slider-ticks">
-          <span className="tick-label" onClick={() => onHour(0)}>0h (Depart)</span>
-          <span className="tick-label" onClick={() => onHour(12)}>+12h</span>
-          <span className="tick-label" onClick={() => onHour(24)}>+24h (1 Day)</span>
-          <span className="tick-label" onClick={() => onHour(36)}>+36h</span>
-          <span className="tick-label" onClick={() => onHour(48)}>+48h</span>
+          <span className="tick-label" onClick={() => onHour(0)} title="Departure (0h)">0h (Depart)</span>
+          <span className="tick-label tick-mid" onClick={() => onHour(12)} title="+12 hours">+12h</span>
+          <span className="tick-label" onClick={() => onHour(24)} title="+24 hours (+1 day)">+24h</span>
+          <span className="tick-label tick-mid" onClick={() => onHour(36)} title="+36 hours">+36h</span>
+          <span className="tick-label" onClick={() => onHour(48)} title="+48 hours (+2 days)">+48h</span>
         </div>
       </div>
 
@@ -179,7 +210,7 @@ export default function HeatSlider({ start, hour, onHour, showHeat, onToggle, se
             onClick={() => onHour(0)}
             disabled={!showHeat || hour === 0}
           >
-            Departure (+0h)
+            Start (0h)
           </button>
           {arrivalHours && arrivalHours > 0 && arrivalHours <= MAX_HOUR && (
             <button
@@ -188,7 +219,7 @@ export default function HeatSlider({ start, hour, onHour, showHeat, onToggle, se
               onClick={() => onHour(arrivalHours)}
               disabled={!showHeat || hour === arrivalHours}
             >
-              Truck Arrival (+{arrivalHours}h)
+              Arrival (+{arrivalHours}h)
             </button>
           )}
         </div>
