@@ -10,7 +10,7 @@ No API keys needed: routing = **OSRM**, weather = **Open-Meteo**, geocoding = **
 
 - **Hosted Web Application:** [https://safehaul-routeiq-frontend.vercel.app](https://safehaul-routeiq-frontend.vercel.app)
 - **GitHub Repository:** [https://github.com/shoaib980-make/Weather-Aware-Truck-Routing](https://github.com/shoaib980-make/Weather-Aware-Truck-Routing)
-- **5–10 Min Loom Walkthrough:** [https://www.loom.com/share/your-walkthrough-id-here](https://www.loom.com/share/your-walkthrough-id-here) *(Please replace with your recording URL)*
+- **Project Walkthrough Video:** [SafeHaul RouteIQ Walkthrough (Google Drive)](https://drive.google.com/file/d/1jxoH_JW4qlNgZO08e7LgUi029A-aQa60/view?usp=sharing)
 
 ---
 
@@ -46,12 +46,12 @@ Candidate routes are evaluated strictly in the following priority:
 - **Dynamic Checkpoint Weather Sampling:** Checkpoints sampled every 10, 25, or 50 miles (or Automatic based on total trip distance). Each checkpoint receives an ETA calculated from truck duration factors (`TRUCK_TIME_FACTOR` default 1.15).
 - **Auditable Risk Mileage without Double-Counting:** Route distance is allocated across non-overlapping segment-midpoint Voronoi polygons, ensuring $\sum \text{Miles}_{\text{Level}} \equiv \text{Total Route Miles}$.
 - **48-Hour Forecast Heatmap Corridor:** Pre-computed 49-hour risk matrix (0–48 h) enables zero-latency scrubbing, animated playback (1x, 2x, 4x), step controls, and instant jumps to departure or arrival.
-- **Interactive Map Experience:** Vector pins for origin/destination, distinct alternative route styling with high-contrast active route casing, color-coded checkpoint markers, multi-basemap switching (Carto Light, Carto Dark, OpenStreetMap), and rich inspection popovers with Prev/Next navigation.
+- **Interactive Map Experience:** Vector pins for origin/destination, distinct alternative route styling with high-contrast active route casing, color-coded checkpoint markers, standard OpenStreetMap (OSM) default basemap, and rich inspection popovers with Prev/Next navigation.
 - **Side-by-Side Comparison Matrix:** Tabular comparison of Route 1 vs Route 2 vs Route 3 across distances, travel times, ETAs, risk mileage breakdowns, and checkpoint counts.
 - **Professional PDF Route Reports:** Downloadable dispatch report (`Origin_to_Destination_Route_Report.pdf`) featuring authentic route-based names, official PDF metadata, custom vector header emblems, safety matrices, and checkpoint logs.
 - **Trip History & Re-analysis:** Save, review, and re-run past commercial trips against fresh live weather forecasts via `/api/trips/`.
 - **Mobile-First Responsive Interface:** Dedicated `.map-controls-dock` preventing UI overlap, smart asymmetrical map bounds padding, collapsible 48-hour timeline slider, and full touch-target compliance.
-- **Full WCAG 2.2 AA Accessibility:** Keyboard accessible combobox geocoding with arrow key navigation, dark/light theme toggle, screen-reader live regions, visible focus rings, and high-contrast color tokens.
+- **Full WCAG 2.2 AA Accessibility:** Keyboard accessible combobox geocoding with arrow key navigation, screen-reader live regions, visible focus rings, and high-contrast color tokens.
 
 ---
 
@@ -73,7 +73,7 @@ python manage.py runserver     # Starts API on http://127.0.0.1:8000
 ```bash
 cd frontend
 npm install
-npm test                       # Run frontend unit tests (20 tests passing via node:test)
+npm test                       # Run frontend unit tests (21 tests passing via node:test)
 npm run dev                    # Starts Vite on http://localhost:5173 (proxies /api to Django)
 ```
 
